@@ -81,6 +81,8 @@ These methods are called directly on your model instance or struct:
 
 ### ⛓️ Query Builder Filters (Chainable)
 You can chain these methods after calling `Model::query()` to filter your data. All values are automatically bound to prevent SQL Injection:
+
+**AND Filters:**
 - `.where_eq(column, value)`
 - `.where_not_eq(column, value)`
 - `.where_gt(column, value)` *(Greater than)*
@@ -91,15 +93,34 @@ You can chain these methods after calling `Model::query()` to filter your data. 
 - `.where_not_like(column, value)`
 - `.where_null(column)`
 - `.where_not_null(column)`
+- `.where_in(column, vec_of_values)`
+- `.where_not_in(column, vec_of_values)`
+- `.where_between(column, min, max)`
+- `.where_not_between(column, min, max)`
 
-### 🔢 Sorting & Pagination (Chainable)
+**OR Filters:**
+- `.or_where(column, value)`
+- `.or_where_not_eq(column, value)`
+- `.or_where_gt(column, value)`
+- `.or_where_lt(column, value)`
+- `.or_where_like(column, value)`
+- `.or_where_null(column)`
+- `.or_where_not_null(column)`
+- `.or_where_in(column, vec_of_values)`
+- `.or_where_between(column, min, max)`
+
+### 🔢 Selecting, Grouping, Sorting & Pagination (Chainable)
+- `.select(vec!["id", "name"])` -> Choose specific columns
+- `.distinct()` -> Add DISTINCT clause
+- `.group_by(column)` -> Add GROUP BY clause
 - `.order_by(column)` -> Ascending order
 - `.order_by_desc(column)` -> Descending order
 - `.limit(value: usize)` -> Limit the number of results
 - `.offset(value: usize)` -> Skip a number of results
 
-### ⚡ Executors (Terminal Methods)
+### ⚡ Executors & Utilities (Terminal Methods)
 End your Query Builder chain with one of these to execute the SQL query asynchronously:
 - `.get().await?` -> Returns a `Vec<Model>` matching your filters.
 - `.first().await?` -> Returns a single `Model` (automatically applies `LIMIT 1`). Throws `RowNotFound` if empty.
 - `.count().await?` -> Returns an `i64` representing the number of rows matching your filters.
+- `.to_sql()` -> Returns a `String` containing the raw SQL query generated so far (useful for debugging).

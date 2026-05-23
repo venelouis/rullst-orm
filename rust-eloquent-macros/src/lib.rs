@@ -42,8 +42,11 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
         // QUERY BUILDER
         // ==========================================
         pub struct #builder_name {
-            pub wheres: Vec<String>,
+            pub selects: Option<String>,
+            pub is_distinct: bool,
+            pub wheres: Vec<(String, String)>,
             pub bindings: Vec<rust_eloquent::EloquentValue>,
+            pub group_by: Option<String>,
             pub order_by: Option<String>,
             pub limit: Option<usize>,
             pub offset: Option<usize>,
@@ -52,100 +55,207 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
         impl #builder_name {
             pub fn new() -> Self {
                 Self {
+                    selects: None,
+                    is_distinct: false,
                     wheres: vec![],
                     bindings: vec![],
+                    group_by: None,
                     order_by: None,
                     limit: None,
                     offset: None,
                 }
             }
 
+            // --- Selects & Distinct ---
+            pub fn select(mut self, columns: Vec<&str>) -> Self {
+                self.selects = Some(columns.join(", "));
+                self
+            }
+
+            pub fn distinct(mut self) -> Self {
+                self.is_distinct = true;
+                self
+            }
+
+            // --- Wheres (AND) ---
             pub fn where_eq<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} = ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} = ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_not_eq<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} != ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} != ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_gt<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} > ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} > ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_lt<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} < ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} < ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_gte<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} >= ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} >= ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_lte<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} <= ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} <= ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_like<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} LIKE ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} LIKE ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_not_like<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
-                self.wheres.push(format!("{} NOT LIKE ?", column));
+                self.wheres.push(("AND".to_string(), format!("{} NOT LIKE ?", column)));
                 self.bindings.push(value.into());
                 self
             }
-
             pub fn where_null(mut self, column: &str) -> Self {
-                self.wheres.push(format!("{} IS NULL", column));
+                self.wheres.push(("AND".to_string(), format!("{} IS NULL", column)));
                 self
             }
-
             pub fn where_not_null(mut self, column: &str) -> Self {
-                self.wheres.push(format!("{} IS NOT NULL", column));
+                self.wheres.push(("AND".to_string(), format!("{} IS NOT NULL", column)));
+                self
+            }
+            pub fn where_in<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+                if values.is_empty() {
+                    self.wheres.push(("AND".to_string(), "1 = 0".to_string()));
+                    return self;
+                }
+                let placeholders = vec!["?"; values.len()].join(", ");
+                self.wheres.push(("AND".to_string(), format!("{} IN ({})", column, placeholders)));
+                for v in values { self.bindings.push(v.into()); }
+                self
+            }
+            pub fn where_not_in<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+                if values.is_empty() { return self; }
+                let placeholders = vec!["?"; values.len()].join(", ");
+                self.wheres.push(("AND".to_string(), format!("{} NOT IN ({})", column, placeholders)));
+                for v in values { self.bindings.push(v.into()); }
+                self
+            }
+            pub fn where_between<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, min: T, max: T) -> Self {
+                self.wheres.push(("AND".to_string(), format!("{} BETWEEN ? AND ?", column)));
+                self.bindings.push(min.into());
+                self.bindings.push(max.into());
+                self
+            }
+            pub fn where_not_between<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, min: T, max: T) -> Self {
+                self.wheres.push(("AND".to_string(), format!("{} NOT BETWEEN ? AND ?", column)));
+                self.bindings.push(min.into());
+                self.bindings.push(max.into());
                 self
             }
 
+            // --- Wheres (OR) ---
+            pub fn or_where<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} = ?", column)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn or_where_not_eq<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} != ?", column)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn or_where_gt<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} > ?", column)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn or_where_lt<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} < ?", column)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn or_where_like<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} LIKE ?", column)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn or_where_null(mut self, column: &str) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} IS NULL", column)));
+                self
+            }
+            pub fn or_where_not_null(mut self, column: &str) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} IS NOT NULL", column)));
+                self
+            }
+            pub fn or_where_in<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+                if values.is_empty() { return self; }
+                let placeholders = vec!["?"; values.len()].join(", ");
+                self.wheres.push(("OR".to_string(), format!("{} IN ({})", column, placeholders)));
+                for v in values { self.bindings.push(v.into()); }
+                self
+            }
+            pub fn or_where_between<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, min: T, max: T) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} BETWEEN ? AND ?", column)));
+                self.bindings.push(min.into());
+                self.bindings.push(max.into());
+                self
+            }
+
+            // --- Grouping, Order and Limits ---
+            pub fn group_by(mut self, column: &str) -> Self {
+                self.group_by = Some(column.to_string());
+                self
+            }
             pub fn order_by(mut self, column: &str) -> Self {
                 self.order_by = Some(format!("{} ASC", column));
                 self
             }
-
             pub fn order_by_desc(mut self, column: &str) -> Self {
                 self.order_by = Some(format!("{} DESC", column));
                 self
             }
-
             pub fn limit(mut self, value: usize) -> Self {
                 self.limit = Some(value);
                 self
             }
-
             pub fn offset(mut self, value: usize) -> Self {
                 self.offset = Some(value);
                 self
             }
 
-            // --- Executors ---
-            pub async fn get(&self) -> Result<Vec<#name>, rust_eloquent::sqlx::Error> {
-                let pool = rust_eloquent::Eloquent::pool();
-                let mut query_str = format!("SELECT * FROM {}", #table_name);
+            // --- Utilities ---
+            pub fn to_sql(&self) -> String {
+                let mut query_str = String::new();
+                query_str.push_str("SELECT ");
                 
+                if self.is_distinct {
+                    query_str.push_str("DISTINCT ");
+                }
+                
+                if let Some(ref selects) = self.selects {
+                    query_str.push_str(selects);
+                } else {
+                    query_str.push_str("*");
+                }
+                
+                query_str.push_str(&format!(" FROM {}", #table_name));
+
                 if !self.wheres.is_empty() {
                     query_str.push_str(" WHERE ");
-                    query_str.push_str(&self.wheres.join(" AND "));
+                    for (i, (operator, condition)) in self.wheres.iter().enumerate() {
+                        if i > 0 {
+                            query_str.push_str(&format!(" {} ", operator));
+                        }
+                        query_str.push_str(condition);
+                    }
+                }
+
+                if let Some(ref group) = self.group_by {
+                    query_str.push_str(" GROUP BY ");
+                    query_str.push_str(group);
                 }
 
                 if let Some(ref order) = self.order_by {
@@ -160,6 +270,14 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                 if let Some(offset) = self.offset {
                     query_str.push_str(&format!(" OFFSET {}", offset));
                 }
+                
+                query_str
+            }
+
+            // --- Executors ---
+            pub async fn get(&self) -> Result<Vec<#name>, rust_eloquent::sqlx::Error> {
+                let pool = rust_eloquent::Eloquent::pool();
+                let query_str = self.to_sql();
 
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &self.bindings {
@@ -177,10 +295,12 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
             }
 
             pub async fn first(&self) -> Result<#name, rust_eloquent::sqlx::Error> {
-                // We clone self to force limit 1
                 let mut builder = Self {
+                    selects: self.selects.clone(),
+                    is_distinct: self.is_distinct.clone(),
                     wheres: self.wheres.clone(),
                     bindings: self.bindings.clone(),
+                    group_by: self.group_by.clone(),
                     order_by: self.order_by.clone(),
                     limit: Some(1),
                     offset: self.offset.clone(),
@@ -200,7 +320,12 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                 
                 if !self.wheres.is_empty() {
                     query_str.push_str(" WHERE ");
-                    query_str.push_str(&self.wheres.join(" AND "));
+                    for (i, (operator, condition)) in self.wheres.iter().enumerate() {
+                        if i > 0 {
+                            query_str.push_str(&format!(" {} ", operator));
+                        }
+                        query_str.push_str(condition);
+                    }
                 }
 
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
@@ -213,7 +338,6 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                // SQLite count returns i64 or similar. Fetching as tuple.
                 let row: (i64,) = rust_eloquent::sqlx::query_as_with(&query_str, args).fetch_one(pool).await?;
                 Ok(row.0)
             }
