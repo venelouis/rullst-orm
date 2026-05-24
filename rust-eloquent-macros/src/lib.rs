@@ -44,7 +44,9 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
         pub struct #builder_name {
             pub selects: Option<String>,
             pub is_distinct: bool,
+            pub joins: Vec<String>,
             pub wheres: Vec<(String, String)>,
+            pub havings: Vec<(String, String)>,
             pub bindings: Vec<rust_eloquent::EloquentValue>,
             pub group_by: Option<String>,
             pub order_by: Option<String>,
@@ -57,7 +59,9 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                 Self {
                     selects: None,
                     is_distinct: false,
+                    joins: vec![],
                     wheres: vec![],
+                    havings: vec![],
                     bindings: vec![],
                     group_by: None,
                     order_by: None,
@@ -74,6 +78,89 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
 
             pub fn distinct(mut self) -> Self {
                 self.is_distinct = true;
+                self
+            }
+
+            // --- Aliases ---
+            pub fn take(self, value: usize) -> Self { self.limit(value) }
+            pub fn skip(self, value: usize) -> Self { self.offset(value) }
+            pub fn latest(self, column: &str) -> Self { self.order_by_desc(column) }
+            pub fn oldest(self, column: &str) -> Self { self.order_by(column) }
+
+            // --- Joins ---
+            pub fn join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
+                self.joins.push(format!("JOIN {} ON {} {} {}", table, first, operator, second));
+                self
+            }
+            pub fn left_join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
+                self.joins.push(format!("LEFT JOIN {} ON {} {} {}", table, first, operator, second));
+                self
+            }
+            pub fn right_join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
+                self.joins.push(format!("RIGHT JOIN {} ON {} {} {}", table, first, operator, second));
+                self
+            }
+            pub fn cross_join(mut self, table: &str) -> Self {
+                self.joins.push(format!("CROSS JOIN {}", table));
+                self
+            }
+
+            // --- Column Comparisons ---
+            pub fn where_column(mut self, first: &str, second: &str) -> Self {
+                self.wheres.push(("AND".to_string(), format!("{} = {}", first, second)));
+                self
+            }
+            pub fn where_column_op(mut self, first: &str, operator: &str, second: &str) -> Self {
+                self.wheres.push(("AND".to_string(), format!("{} {} {}", first, operator, second)));
+                self
+            }
+            pub fn or_where_column(mut self, first: &str, second: &str) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} = {}", first, second)));
+                self
+            }
+            pub fn or_where_column_op(mut self, first: &str, operator: &str, second: &str) -> Self {
+                self.wheres.push(("OR".to_string(), format!("{} {} {}", first, operator, second)));
+                self
+            }
+
+            // --- Raw Queries ---
+            pub fn where_raw<T: Into<rust_eloquent::EloquentValue>>(mut self, sql: &str, bindings: Vec<T>) -> Self {
+                self.wheres.push(("AND".to_string(), sql.to_string()));
+                for v in bindings { self.bindings.push(v.into()); }
+                self
+            }
+            pub fn or_where_raw<T: Into<rust_eloquent::EloquentValue>>(mut self, sql: &str, bindings: Vec<T>) -> Self {
+                self.wheres.push(("OR".to_string(), sql.to_string()));
+                for v in bindings { self.bindings.push(v.into()); }
+                self
+            }
+            pub fn select_raw(mut self, sql: &str) -> Self {
+                self.selects = Some(sql.to_string());
+                self
+            }
+            pub fn order_by_raw(mut self, sql: &str) -> Self {
+                self.order_by = Some(sql.to_string());
+                self
+            }
+            pub fn group_by_raw(mut self, sql: &str) -> Self {
+                self.group_by = Some(sql.to_string());
+                self
+            }
+
+            // --- Havings ---
+            pub fn having<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, operator: &str, value: T) -> Self {
+                self.havings.push(("AND".to_string(), format!("{} {} ?", column, operator)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn or_having<T: Into<rust_eloquent::EloquentValue>>(mut self, column: &str, operator: &str, value: T) -> Self {
+                self.havings.push(("OR".to_string(), format!("{} {} ?", column, operator)));
+                self.bindings.push(value.into());
+                self
+            }
+            pub fn having_raw<T: Into<rust_eloquent::EloquentValue>>(mut self, sql: &str, bindings: Vec<T>) -> Self {
+                self.havings.push(("AND".to_string(), sql.to_string()));
+                for v in bindings { self.bindings.push(v.into()); }
                 self
             }
 
@@ -243,6 +330,13 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                 
                 query_str.push_str(&format!(" FROM {}", #table_name));
 
+                if !self.joins.is_empty() {
+                    for join in &self.joins {
+                        query_str.push_str(" ");
+                        query_str.push_str(join);
+                    }
+                }
+
                 if !self.wheres.is_empty() {
                     query_str.push_str(" WHERE ");
                     for (i, (operator, condition)) in self.wheres.iter().enumerate() {
@@ -256,6 +350,16 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                 if let Some(ref group) = self.group_by {
                     query_str.push_str(" GROUP BY ");
                     query_str.push_str(group);
+                }
+
+                if !self.havings.is_empty() {
+                    query_str.push_str(" HAVING ");
+                    for (i, (operator, condition)) in self.havings.iter().enumerate() {
+                        if i > 0 {
+                            query_str.push_str(&format!(" {} ", operator));
+                        }
+                        query_str.push_str(condition);
+                    }
                 }
 
                 if let Some(ref order) = self.order_by {
@@ -298,7 +402,9 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
                 let mut builder = Self {
                     selects: self.selects.clone(),
                     is_distinct: self.is_distinct.clone(),
+                    joins: self.joins.clone(),
                     wheres: self.wheres.clone(),
+                    havings: self.havings.clone(),
                     bindings: self.bindings.clone(),
                     group_by: self.group_by.clone(),
                     order_by: self.order_by.clone(),
@@ -317,6 +423,13 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
             pub async fn count(&self) -> Result<i64, rust_eloquent::sqlx::Error> {
                 let pool = rust_eloquent::Eloquent::pool();
                 let mut query_str = format!("SELECT COUNT(*) FROM {}", #table_name);
+                
+                if !self.joins.is_empty() {
+                    for join in &self.joins {
+                        query_str.push_str(" ");
+                        query_str.push_str(join);
+                    }
+                }
                 
                 if !self.wheres.is_empty() {
                     query_str.push_str(" WHERE ");
