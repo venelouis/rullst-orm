@@ -1,10 +1,11 @@
 [package]
 name = "rust-eloquent-macros"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Procedural macros for the rust-eloquent ORM."
 license = "MIT"
 repository = "https://github.com/venelouis/rust-eloquent"
+readme = "../README.md"
 
 [lib]
 proc-macro = true
