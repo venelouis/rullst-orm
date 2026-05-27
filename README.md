@@ -44,7 +44,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rust-eloquent = "1.1.3"
+rust-eloquent = "1.1.4"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
