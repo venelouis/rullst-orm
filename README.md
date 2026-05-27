@@ -28,6 +28,16 @@ In traditional Rust database handling, you have to write raw SQL queries, manage
 
 ---
 
+## 📚 Documentation & Planning
+
+Explore our project documentation, future plans, and recent updates:
+- **[Changelog](CHANGELOG.md)**: Detailed release history and updates.
+- **[Roadmap v1.x](ROADMAP.md)**: Current roadmap and goals for the 1.x release cycle.
+- **[Roadmap v2.0](docs/v2_roadmap.md)**: Future plans and architecture for the upcoming major release.
+- **[Security & Performance Audit](docs/audit_report.md)**: Our latest internal audit and resolution notes.
+
+---
+
 ## 🛠️ Installation
 
 Add the library to your `Cargo.toml`:
