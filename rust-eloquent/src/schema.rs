@@ -46,6 +46,12 @@ pub struct Blueprint {
     pub columns: Vec<Column>,
 }
 
+impl Default for Blueprint {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Blueprint {
     pub fn new() -> Self {
         Self { columns: vec![] }
@@ -319,16 +325,14 @@ fn regenerate_migrations_mod() -> Result<(), Error> {
     let mut modules = vec![];
     for path in paths {
         let path = path.map_err(|e| Error::Protocol(e.to_string()))?.path();
-        if let Some(ext) = path.extension() {
-            if ext == "rs" {
-                if let Some(stem) = path.file_stem() {
+        if let Some(ext) = path.extension()
+            && ext == "rs"
+                && let Some(stem) = path.file_stem() {
                     let stem_str = stem.to_string_lossy().to_string();
                     if stem_str != "mod" && stem_str.starts_with('m') {
                         modules.push(stem_str);
                     }
                 }
-            }
-        }
     }
     modules.sort();
 

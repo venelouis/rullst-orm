@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-05-27
+
+### Added
+- **GitHub Actions CI:** Automated tests, clippy linting, and crates.io publishing pipeline.
+- **CI Badges:** Added CI badge to the README.
+
+### Fixed
+- **N+1 Eager Loading Problem:** Completely resolved the critical `N+1` query issue in eager loading. The macro now compiles relational queries using `WHERE IN (...)` for `has_many`, `has_one`, and `belongs_to`, aggregating results efficiently in memory (`O(N)` performance instead of hitting the database in a loop).
+
+### Changed
+- **Dependencies Updated:** All `cargo` dependencies bumped to their latest versions.
+- **Removed Unused Imports:** Cleaned up the codebase with `cargo clippy --fix`.
+- **Macro Modularization:** Splitted the massive `rust-eloquent-macros` monolith into smaller files (`parser.rs`, `builder.rs`, `models.rs`, etc.) to improve maintainability and AI processing capabilities.
+
 ## [1.1.0] - 2026-05-25
 
 ### Added

@@ -1,4 +1,4 @@
-use rust_eloquent::{Eloquent, sqlx::FromRow, EloquentModel};
+use rust_eloquent::{Eloquent, sqlx::FromRow};
 use rust_eloquent::schema::Schema;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

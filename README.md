@@ -4,6 +4,7 @@
 ![Docs.rs](https://img.shields.io/docsrs/rust-eloquent?style=flat-square&color=blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Databases](https://img.shields.io/badge/Databases-PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-lightgrey?style=flat-square)
+![CI](https://github.com/venelouis/rust-eloquent/actions/workflows/ci.yml/badge.svg)
 
 An Active Record ORM for Rust, inspired by Laravel's Eloquent.
 

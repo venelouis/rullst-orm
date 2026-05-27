@@ -131,12 +131,11 @@ impl Eloquent {
     /// Retrieve the connection pool for read operations.
     /// Performs a round-robin load balancing over replicas if configured.
     pub fn read_pool() -> &'static AnyPool {
-        if let Some(replicas) = REPLICA_POOLS.get() {
-            if !replicas.is_empty() {
+        if let Some(replicas) = REPLICA_POOLS.get()
+            && !replicas.is_empty() {
                 let idx = REPLICA_INDEX.fetch_add(1, Ordering::Relaxed);
                 return &replicas[idx % replicas.len()];
             }
-        }
         Self::pool()
     }
 

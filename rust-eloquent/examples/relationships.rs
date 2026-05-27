@@ -1,4 +1,4 @@
-use rust_eloquent::{Eloquent, EloquentModel, sqlx::FromRow};
+use rust_eloquent::{Eloquent, sqlx::FromRow};
 
 #[derive(Debug, Clone, FromRow, rust_eloquent::Eloquent)]
 #[eloquent(table = "users")]

@@ -11,12 +11,11 @@ pub struct User {
 impl User {
     // Mutator / Before Save Event
     pub async fn hash_password(&mut self) -> Result<(), rust_eloquent::sqlx::Error> {
-        if let Some(pwd) = &self.password {
-            if !pwd.starts_with("hashed_") {
+        if let Some(pwd) = &self.password
+            && !pwd.starts_with("hashed_") {
                 self.password = Some(format!("hashed_{}", pwd));
                 println!("[Hook: before_save] Password has been hashed!");
             }
-        }
         Ok(())
     }
 

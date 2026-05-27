@@ -1,5 +1,5 @@
 use rust_eloquent::{Eloquent, sqlx::FromRow, EloquentModel};
-use rust_eloquent::schema::{Schema, Blueprint};
+use rust_eloquent::schema::Schema;
 
 // The Comment model represents a polymorphic child.
 // It can belong to either a Post or a Video.
