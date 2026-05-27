@@ -207,7 +207,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         if let Some(ref filter) = self.#filter_flag {
                             query = filter(query);
                         }
-                        let mut all_related = query.get().await?;
+                        let mut all_related = Box::pin(query.get()).await?;
                         
                         for model in &mut results {
                             let mut matching = vec![];
@@ -233,7 +233,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         if let Some(ref filter) = self.#filter_flag {
                             query = filter(query);
                         }
-                        let mut all_related = query.get().await?;
+                        let mut all_related = Box::pin(query.get()).await?;
                         
                         for model in &mut results {
                             let mut matching = None;
@@ -259,7 +259,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         if let Some(ref filter) = self.#filter_flag {
                             query = filter(query);
                         }
-                        let mut all_related = query.get().await?;
+                        let mut all_related = Box::pin(query.get()).await?;
                         
                         for model in &mut results {
                             let mut matching = None;

@@ -506,6 +506,10 @@ impl JoinClause {
         self.bindings.push(value.into());
         self
     }
+
+    pub fn to_sql(&self) -> String {
+        self.conditions.join(" AND ")
+    }
 }
 
 pub trait SubqueryBuilder {

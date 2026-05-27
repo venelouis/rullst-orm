@@ -45,14 +45,23 @@ pub fn generate(parsed: &ParsedModel) -> TokenStream {
             }
         }
 
+        impl #name {
+            pub fn factory<F: 'static + Send + Sync + Fn() -> #name>(generator: F) -> #factory_name {
+                #factory_name {
+                    generator: Box::new(generator),
+                    count: 1,
+                }
+            }
+        }
+
         #[rust_eloquent::async_trait]
         pub trait #observer_trait_name {
             async fn saving(&self, model: &mut #name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
-            async fn saved(&self, model: &mut #name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
+            async fn saved(&self, model: &#name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
             async fn updating(&self, model: &mut #name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
-            async fn updated(&self, model: &mut #name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
+            async fn updated(&self, model: &#name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
             async fn creating(&self, model: &mut #name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
-            async fn created(&self, model: &mut #name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
+            async fn created(&self, model: &#name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
             async fn deleting(&self, model: &#name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
             async fn deleted(&self, model: &#name) -> Result<(), rust_eloquent::sqlx::Error> { Ok(()) }
         }

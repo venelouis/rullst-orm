@@ -10,6 +10,7 @@ pub fn generate(
     eager_loads: &TokenStream,
 ) -> TokenStream {
     let name = &parsed.name;
+    let column_enum_name = quote::format_ident!("{}Column", name);
     let builder_name = quote::format_ident!("{}QueryBuilder", name);
     let table_name = &parsed.table_name;
     let has_soft_deletes = parsed.has_soft_deletes;
@@ -82,6 +83,15 @@ pub fn generate(
             #(#relation_flags)*
         }
 
+        impl rust_eloquent::schema::SubqueryBuilder for #builder_name {
+            fn to_sql(&self) -> String {
+                self.to_sql()
+            }
+            fn bindings(&self) -> &Vec<rust_eloquent::EloquentValue> {
+                &self.bindings
+            }
+        }
+
         impl #builder_name {
             pub fn new() -> Self {
                 Self {
@@ -124,20 +134,20 @@ pub fn generate(
                 self
             }
 
-            pub fn where_exists(mut self, subquery: Self) -> Self {
+            pub fn where_exists<B: rust_eloquent::schema::SubqueryBuilder>(mut self, subquery: B) -> Self {
                 let sql = subquery.to_sql();
                 self.wheres.push(("AND".to_string(), format!("EXISTS ({})", sql)));
-                for binding in subquery.bindings {
-                    self.bindings.push(binding);
+                for binding in subquery.bindings() {
+                    self.bindings.push(binding.clone());
                 }
                 self
             }
 
-            pub fn or_where_exists(mut self, subquery: Self) -> Self {
+            pub fn or_where_exists<B: rust_eloquent::schema::SubqueryBuilder>(mut self, subquery: B) -> Self {
                 let sql = subquery.to_sql();
                 self.wheres.push(("OR".to_string(), format!("EXISTS ({})", sql)));
-                for binding in subquery.bindings {
-                    self.bindings.push(binding);
+                for binding in subquery.bindings() {
+                    self.bindings.push(binding.clone());
                 }
                 self
             }
@@ -164,13 +174,13 @@ pub fn generate(
                 self
             }
 
-            pub fn join_constrained<F>(mut self, table: &str, closure: F) -> Self
-            where F: FnOnce(rust_eloquent::JoinClause) -> rust_eloquent::JoinClause
+            pub fn join_constrained<F>(mut self, table: &str, modifier: F) -> Self
+            where F: FnOnce(&mut rust_eloquent::JoinClause) -> &mut rust_eloquent::JoinClause
             {
-                let clause = rust_eloquent::JoinClause::new("INNER");
-                let built = closure(clause);
-                self.joins.push(format!("INNER JOIN {} ON {}", table, built.to_sql()));
-                for binding in built.bindings {
+                let mut clause = rust_eloquent::JoinClause::new("INNER");
+                modifier(&mut clause);
+                self.joins.push(format!("INNER JOIN {} ON {}", table, clause.to_sql()));
+                for binding in clause.bindings {
                     self.bindings.push(binding);
                 }
                 self
@@ -229,6 +239,33 @@ pub fn generate(
 
             pub fn where_null(mut self, column: &str) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} IS NULL", column)));
+                self
+            }
+
+            pub fn select(mut self, columns: &[&str]) -> Self {
+                self.selects = Some(columns.join(", "));
+                self
+            }
+
+            pub fn select_cols(mut self, cols: &[#column_enum_name]) -> Self {
+                let s = cols.iter().map(|c| c.as_str()).collect::<Vec<_>>().join(", ");
+                self.selects = Some(s);
+                self
+            }
+
+            pub fn where_col<T: Into<rust_eloquent::EloquentValue>>(mut self, col: #column_enum_name, value: T) -> Self {
+                self.wheres.push(("AND".to_string(), format!("{} = ?", col.as_str())));
+                self.bindings.push(value.into());
+                self
+            }
+
+            pub fn order_by_col(mut self, col: #column_enum_name) -> Self {
+                self.order_by = Some(col.as_str().to_string());
+                self
+            }
+
+            pub fn order_by_desc_col(mut self, col: #column_enum_name) -> Self {
+                self.order_by = Some(format!("{} DESC", col.as_str()));
                 self
             }
 

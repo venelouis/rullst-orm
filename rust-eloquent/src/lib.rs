@@ -23,6 +23,7 @@ pub use async_trait::async_trait;
 
 // Re-export sqlx and FromRow for database mapping
 pub use sqlx::FromRow;
+pub use schema::{JoinClause, SubqueryBuilder};
 
 /// The global connection pool
 static DB_POOL: OnceLock<AnyPool> = OnceLock::new();
