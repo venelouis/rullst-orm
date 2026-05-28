@@ -154,7 +154,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
             });
         } else if rel_type == "belongs_to_many" {
             let pivot_fk = format!("{}.{}", pivot_table, foreign_key);
-            let _pivot_rk = format!("{}.{}", pivot_table, related_key);
+            let pivot_rk = format!("{}.{}", pivot_table, related_key);
             model_methods.push(quote! {
                 pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rust_eloquent::sqlx::Error>> + Send + '_>> {
                     Box::pin(async move {
@@ -162,7 +162,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         let select_raw = format!("{}.*", #rel_model_ident::table_name());
                         #rel_model_ident::query()
                             .select_raw(&select_raw)
-                            .join(#pivot_table, &related_pk, "=", &_pivot_rk)
+                            .join(#pivot_table, &related_pk, "=", #pivot_rk)
                             .where_eq(&#pivot_fk, self.#lk_ident.clone())
                             .get().await
                     })
@@ -173,7 +173,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         let select_raw = format!("{}.*", #rel_model_ident::table_name());
                         let mut q = #rel_model_ident::query()
                             .select_raw(&select_raw)
-                            .join(#pivot_table, &related_pk, "=", &_pivot_rk)
+                            .join(#pivot_table, &related_pk, "=", #pivot_rk)
                             .where_eq(&#pivot_fk, self.#lk_ident.clone());
                         q = modifier(q);
                         q.get().await

@@ -1,6 +1,6 @@
 use rust_eloquent::{Eloquent, sqlx::FromRow, Seeder, async_trait};
 use rust_eloquent::schema::{Schema, Blueprint};
-use rand::Rng; // Add simple rand logic to the factory if needed
+use rand::RngExt;
 
 #[derive(Debug, Clone, FromRow, rust_eloquent::Eloquent)]
 #[eloquent(table = "users")]
@@ -22,8 +22,8 @@ impl Seeder for DatabaseSeeder {
 
         // Use the macro-generated Factory Builder!
         let users = User::factory(|| {
-            let mut rng = rand::thread_rng();
-            let random_id: u32 = rng.gen_range(1000..9999);
+            let mut rng = rand::rng();
+            let random_id: u32 = rng.random_range(1000..9999);
             User {
                 id: 0, // Assigned by DB
                 name: format!("Fake User {}", random_id),

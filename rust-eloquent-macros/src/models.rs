@@ -349,17 +349,20 @@ pub fn generate(
                     let payload = self.to_json();
                     if is_new {
                         let topic = format!("eloquent:events:{}:created", #table_name);
-                        if let Err(e) = conn.publish(&topic, &payload).await {
+                        let publish_result: Result<usize, rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                        if let Err(e) = publish_result {
                             eprintln!("[Redis Error] Failed to publish created event: {}", e);
                         }
                     } else {
                         let topic = format!("eloquent:events:{}:updated", #table_name);
-                        if let Err(e) = conn.publish(&topic, &payload).await {
+                        let publish_result: Result<usize, rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                        if let Err(e) = publish_result {
                             eprintln!("[Redis Error] Failed to publish updated event: {}", e);
                         }
                     }
                     let topic = format!("eloquent:events:{}:saved", #table_name);
-                    if let Err(e) = conn.publish(&topic, &payload).await {
+                    let publish_result: Result<usize, rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                    if let Err(e) = publish_result {
                         eprintln!("[Redis Error] Failed to publish saved event: {}", e);
                     }
                 }
@@ -414,7 +417,8 @@ pub fn generate(
                     let mut conn = rust_eloquent::Eloquent::redis_manager();
                     let payload = self.to_json();
                     let topic = format!("eloquent:events:{}:deleted", #table_name);
-                    if let Err(e) = conn.publish(&topic, &payload).await {
+                    let publish_result: Result<usize, rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                    if let Err(e) = publish_result {
                         eprintln!("[Redis Error] Failed to publish deleted event: {}", e);
                     }
                 }
