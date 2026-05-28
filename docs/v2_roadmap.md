@@ -33,3 +33,13 @@ Subqueries and raw scope injections do not automatically drop their memory footp
 
 **Proposed Change (v2.0):**
 Implement custom `Drop` traits or an explicit arena allocator for complex query chains to reduce the maximum memory footprint during large `EXISTS` subquery resolutions.
+
+## 4. 🧬 Query Builder Generics & Type-Safe Bindings
+
+**Current State (v1.x):**
+The library relies on a dynamic enum (`EloquentValue`) to represent and bind variables into SQL statements (e.g. `String`, `Int`, `Float`). This creates an unnecessary indirection layer and a small memory overhead allocating variables into the enum wrapper before binding them.
+
+**Proposed Change (v2.0):**
+Refactor the query builder API (e.g., `.where_eq()`, `.or_where()`) to accept generic types bound by SQLx's native `sqlx::Encode` and `sqlx::Type` traits.
+- This will completely remove the need for `EloquentValue` in strict mode environments.
+- Bindings will be statically pushed down to the underlying database driver natively, making execution slightly faster and memory-safe.
