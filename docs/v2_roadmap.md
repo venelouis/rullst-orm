@@ -20,7 +20,7 @@ The library uses `sqlx::AnyPool` and a custom generic enum (`EloquentValue`) to 
 
 **Proposed Change (v2.0):**
 Introduce an optional "Strict Mode" via Cargo **Feature Flags** (e.g., `features = ["strict-postgres"]`).
-- **Strategic Update:** Instead of removing `AnyPool` entirely and breaking compatibility for all current users, the V1 "Dynamic Mode" will remain available.
+- **Strategic Update:** Instead of removing `AnyPool` entirely and breaking compatibility for all current users, the `v1.x` dynamic mode will remain available.
 - When the strict feature flag is enabled, the ORM will use `sqlx::query!` macros to validate SQL queries against the actual database schema at compile time, and the underlying pool will switch to specific pools like `PgPool` or `MySqlPool`.
 - This dual-approach provides a safe migration path for existing applications while offering maximum safety for new projects.
 
