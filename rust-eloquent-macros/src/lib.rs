@@ -14,7 +14,10 @@ pub fn eloquent_macro(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     
     // Parse the input
-    let parsed = parser::parse(&input);
+    let parsed = match parser::parse(&input) {
+        Ok(p) => p,
+        Err(e) => return TokenStream::from(e.to_compile_error()),
+    };
     
     // Generate relationships
     let rels = relationships::generate(&parsed);

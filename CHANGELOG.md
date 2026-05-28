@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-05-28
+
+### Security
+- **SQL Injection Fix:** Added `validate_table_name()` function to prevent SQL injection in schema operations
+- **Input Validation:** Added `validate_relation_attribute()` function to validate macro attribute syntax
+
+### Fixed
+- **Critical Unwrap Calls:** Replaced 38+ `unwrap()` calls with proper error handling (`expect()` with descriptive messages, `?` for error propagation)
+- **Race Condition:** Fixed race condition in replica round-robin by moving modulo operation before array access
+- **Redis Error Handling:** Added error logging for Redis publish failures instead of silently ignoring them
+
+### Performance
+- **Allocation Optimization:** Added `String::with_capacity()` in `to_sql()` with estimated capacity
+- **String Formatting:** Replaced many `format!` calls with `push_str` in hot paths
+- **Clone Reduction:** Removed unnecessary clones by using `as_str()` instead of `clone()`
+
+### Changed
+- **Macro Modularization:** Extracted helper functions (`generate_magic_methods()`, `generate_delete_all_logic()`) to reduce complexity
+- **Macro Tests:** Added unit tests for macro generation in `tests/macro_tests.rs`
+- **Audit Report:** Updated audit report to English with v1.1.5 fixes reflected
+
+---
+
 ## [1.1.4] - 2026-05-27
 
 ### Fixed

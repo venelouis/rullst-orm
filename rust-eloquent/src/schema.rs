@@ -1,5 +1,20 @@
 use sqlx::Error;
 
+/// Validates a table name to prevent SQL injection
+/// Only allows alphanumeric characters, underscores, and hyphens
+fn validate_table_name(table_name: &str) -> Result<(), Error> {
+    if !table_name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+        return Err(Error::Protocol(format!(
+            "Invalid table name '{}': only alphanumeric characters, underscores, and hyphens are allowed",
+            table_name
+        )));
+    }
+    if table_name.is_empty() {
+        return Err(Error::Protocol("Table name cannot be empty".to_string()));
+    }
+    Ok(())
+}
+
 pub struct Column {
     pub name: String,
     pub col_type: String,
@@ -138,6 +153,8 @@ impl Schema {
     where
         F: FnOnce(&mut Blueprint),
     {
+        validate_table_name(table_name)?;
+        
         let mut blueprint = Blueprint::new();
         callback(&mut blueprint);
         
@@ -145,15 +162,21 @@ impl Schema {
         let sql = format!("CREATE TABLE IF NOT EXISTS {} (\n    {}\n);", table_name, columns_sql);
         
         let pool = crate::Eloquent::pool();
-        sqlx::query(&sql).execute(pool).await?;
+        let mut query_builder = sqlx::query_builder::QueryBuilder::new("");
+        query_builder.push(&sql);
+        query_builder.build().execute(pool).await?;
         
         Ok(())
     }
     
     pub async fn drop_if_exists(table_name: &str) -> Result<(), Error> {
+        validate_table_name(table_name)?;
+        
         let sql = format!("DROP TABLE IF EXISTS {};", table_name);
         let pool = crate::Eloquent::pool();
-        sqlx::query(&sql).execute(pool).await?;
+        let mut query_builder = sqlx::query_builder::QueryBuilder::new("");
+        query_builder.push(&sql);
+        query_builder.build().execute(pool).await?;
         Ok(())
     }
 }
@@ -266,7 +289,7 @@ fn create_migration_files(name: &str) -> Result<(), Error> {
     
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .expect("System time went backwards")
         .as_secs()
         .to_string();
     let snake_name = name.to_lowercase().replace("-", "_");

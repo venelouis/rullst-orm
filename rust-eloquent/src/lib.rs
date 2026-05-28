@@ -134,8 +134,8 @@ impl Eloquent {
     pub fn read_pool() -> &'static AnyPool {
         if let Some(replicas) = REPLICA_POOLS.get()
             && !replicas.is_empty() {
-                let idx = REPLICA_INDEX.fetch_add(1, Ordering::Relaxed);
-                return &replicas[idx % replicas.len()];
+                let idx = REPLICA_INDEX.fetch_add(1, Ordering::Relaxed) % replicas.len();
+                return &replicas[idx];
             }
         Self::pool()
     }

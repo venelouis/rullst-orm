@@ -136,7 +136,7 @@ pub fn generate(
             pub fn from_json_value(value: rust_eloquent::serde_json::Value) -> Result<Self, rust_eloquent::serde_json::Error> {
                 Ok(Self {
                     #(
-                        #normal_fields: rust_eloquent::serde_json::from_value(value[stringify!(#normal_fields)].clone()).unwrap(),
+                        #normal_fields: rust_eloquent::serde_json::from_value(value[stringify!(#normal_fields)].clone())?,
                     )*
                     #(
                         #relation_field_idents: None,
@@ -184,7 +184,7 @@ pub fn generate(
 
             pub fn observe(observer: std::sync::Arc<dyn #observer_trait_name + Send + Sync>) {
                 let list = Self::observers();
-                let mut writer = list.write().unwrap();
+                let mut writer = list.write().expect("Failed to acquire write lock on observers - possible poisoning");
                 writer.push(observer);
             }
 
@@ -231,7 +231,7 @@ pub fn generate(
                 #hook_before_save
                 {
                     let observers = {
-                        let list = Self::observers().read().unwrap();
+                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                         list.clone()
                     };
                     for obs in observers.iter() {
@@ -241,7 +241,7 @@ pub fn generate(
                 if self.id == 0 {
                     {
                         let observers = {
-                            let list = Self::observers().read().unwrap();
+                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                             list.clone()
                         };
                         for obs in observers.iter() {
@@ -272,7 +272,7 @@ pub fn generate(
                     }
                     {
                         let observers = {
-                            let list = Self::observers().read().unwrap();
+                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                             list.clone()
                         };
                         for obs in observers.iter() {
@@ -282,7 +282,7 @@ pub fn generate(
                 } else {
                     {
                         let observers = {
-                            let list = Self::observers().read().unwrap();
+                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                             list.clone()
                         };
                         for obs in observers.iter() {
@@ -300,7 +300,7 @@ pub fn generate(
                         .await?;
                     {
                         let observers = {
-                            let list = Self::observers().read().unwrap();
+                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                             list.clone()
                         };
                         for obs in observers.iter() {
@@ -310,7 +310,7 @@ pub fn generate(
                 }
                 {
                     let observers = {
-                        let list = Self::observers().read().unwrap();
+                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                         list.clone()
                     };
                     for obs in observers.iter() {
@@ -324,13 +324,19 @@ pub fn generate(
                     let payload = self.to_json();
                     if is_new {
                         let topic = format!("eloquent:events:{}:created", #table_name);
-                        let _: Result<(), rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                        if let Err(e) = conn.publish(&topic, &payload).await {
+                            eprintln!("[Redis Error] Failed to publish created event: {}", e);
+                        }
                     } else {
                         let topic = format!("eloquent:events:{}:updated", #table_name);
-                        let _: Result<(), rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                        if let Err(e) = conn.publish(&topic, &payload).await {
+                            eprintln!("[Redis Error] Failed to publish updated event: {}", e);
+                        }
                     }
                     let topic = format!("eloquent:events:{}:saved", #table_name);
-                    let _: Result<(), rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                    if let Err(e) = conn.publish(&topic, &payload).await {
+                        eprintln!("[Redis Error] Failed to publish saved event: {}", e);
+                    }
                 }
                 #hook_after_save
                 Ok(())
@@ -351,7 +357,7 @@ pub fn generate(
                 #hook_before_delete
                 {
                     let observers = {
-                        let list = Self::observers().read().unwrap();
+                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                         list.clone()
                     };
                     for obs in observers.iter() {
@@ -365,7 +371,7 @@ pub fn generate(
                 rust_eloquent::sqlx::query(&query).bind(self.id).execute(executor).await?;
                 {
                     let observers = {
-                        let list = Self::observers().read().unwrap();
+                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
                         list.clone()
                     };
                     for obs in observers.iter() {
@@ -378,7 +384,9 @@ pub fn generate(
                     let mut conn = rust_eloquent::Eloquent::redis_manager();
                     let payload = self.to_json();
                     let topic = format!("eloquent:events:{}:deleted", #table_name);
-                    let _: Result<(), rust_eloquent::redis::RedisError> = conn.publish(&topic, &payload).await;
+                    if let Err(e) = conn.publish(&topic, &payload).await {
+                        eprintln!("[Redis Error] Failed to publish deleted event: {}", e);
+                    }
                 }
                 #hook_after_delete
                 Ok(())

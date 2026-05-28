@@ -2,35 +2,8 @@ use quote::quote;
 use proc_macro2::TokenStream;
 use crate::parser::ParsedModel;
 
-pub fn generate(
-    parsed: &ParsedModel,
-    relation_flags: &[TokenStream],
-    relation_inits: &[TokenStream],
-    relation_methods: &[TokenStream],
-    eager_loads: &TokenStream,
-) -> TokenStream {
-    let name = &parsed.name;
-    let column_enum_name = quote::format_ident!("{}Column", name);
-    let builder_name = quote::format_ident!("{}QueryBuilder", name);
-    let table_name = &parsed.table_name;
-    let has_soft_deletes = parsed.has_soft_deletes;
-    let hook_after_fetch = if !parsed.after_fetch.is_empty() {
-        let method = syn::Ident::new(&parsed.after_fetch, name.span());
-        quote! { for model in &mut results { model.#method().await?; } }
-    } else {
-        quote! {}
-    };
-
-    let delete_all_logic = if has_soft_deletes {
-        quote! {
-            let mut query_str = format!("UPDATE {} SET deleted_at = CURRENT_TIMESTAMP", #table_name);
-        }
-    } else {
-        quote! {
-            let mut query_str = format!("DELETE FROM {}", #table_name);
-        }
-    };
-
+/// Generates the magic methods for each field (where_field, order_by_field, etc)
+fn generate_magic_methods(parsed: &ParsedModel) -> Vec<TokenStream> {
     let mut magic_methods = vec![];
     for field_name in &parsed.normal_fields {
         let field_name_str = field_name.to_string();
@@ -62,6 +35,43 @@ pub fn generate(
             }
         });
     }
+    magic_methods
+}
+
+/// Generates the delete_all logic based on soft deletes
+fn generate_delete_all_logic(has_soft_deletes: bool, table_name: &str) -> TokenStream {
+    if has_soft_deletes {
+        quote! {
+            let mut query_str = format!("UPDATE {} SET deleted_at = CURRENT_TIMESTAMP", #table_name);
+        }
+    } else {
+        quote! {
+            let mut query_str = format!("DELETE FROM {}", #table_name);
+        }
+    }
+}
+
+pub fn generate(
+    parsed: &ParsedModel,
+    relation_flags: &[TokenStream],
+    relation_inits: &[TokenStream],
+    relation_methods: &[TokenStream],
+    eager_loads: &TokenStream,
+) -> TokenStream {
+    let name = &parsed.name;
+    let column_enum_name = quote::format_ident!("{}Column", name);
+    let builder_name = quote::format_ident!("{}QueryBuilder", name);
+    let table_name = &parsed.table_name;
+    let has_soft_deletes = parsed.has_soft_deletes;
+    let hook_after_fetch = if !parsed.after_fetch.is_empty() {
+        let method = syn::Ident::new(&parsed.after_fetch, name.span());
+        quote! { for model in &mut results { model.#method().await?; } }
+    } else {
+        quote! {}
+    };
+
+    let delete_all_logic = generate_delete_all_logic(has_soft_deletes, table_name);
+    let magic_methods = generate_magic_methods(parsed);
 
     quote! {
         #[derive(Clone)]
@@ -390,17 +400,28 @@ pub fn generate(
             }
 
             pub fn to_sql(&self) -> String {
-                let mut sql = String::new();
                 let select_clause = match &self.selects {
-                    Some(s) => s.clone(),
-                    None => "*".to_string(),
+                    Some(s) => s.as_str(),
+                    None => "*",
                 };
                 let distinct = if self.is_distinct { "DISTINCT " } else { "" };
                 
-                sql.push_str(&format!("SELECT {}{} FROM {}", distinct, select_clause, #table_name));
+                // Estimate capacity: SELECT + FROM + table + joins + wheres
+                let estimated_capacity = 50 + #table_name.len() + self.joins.iter().map(|j| j.len() + 1).sum::<usize>() 
+                    + self.wheres.iter().map(|(o, c)| o.len() + c.len() + 4).sum::<usize>();
+                let mut sql = String::with_capacity(estimated_capacity);
+                
+                sql.push_str("SELECT ");
+                if self.is_distinct {
+                    sql.push_str("DISTINCT ");
+                }
+                sql.push_str(select_clause);
+                sql.push_str(" FROM ");
+                sql.push_str(#table_name);
 
                 for join in &self.joins {
-                    sql.push_str(&format!(" {}", join));
+                    sql.push(' ');
+                    sql.push_str(join);
                 }
 
                 let mut first_where = true;
@@ -408,10 +429,16 @@ pub fn generate(
                     sql.push_str(" WHERE ");
                     for (op, cond) in &self.wheres {
                         if first_where {
-                            sql.push_str(&format!("({})", cond));
+                            sql.push('(');
+                            sql.push_str(cond);
+                            sql.push(')');
                             first_where = false;
                         } else {
-                            sql.push_str(&format!(" {} ({})", op, cond));
+                            sql.push(' ');
+                            sql.push_str(op);
+                            sql.push_str(" (");
+                            sql.push_str(cond);
+                            sql.push(')');
                         }
                     }
                 }
@@ -430,7 +457,8 @@ pub fn generate(
                 }
 
                 if let Some(group) = &self.group_by {
-                    sql.push_str(&format!(" GROUP BY {}", group));
+                    sql.push_str(" GROUP BY ");
+                    sql.push_str(group);
                 }
 
                 let mut first_having = true;
@@ -438,23 +466,32 @@ pub fn generate(
                     sql.push_str(" HAVING ");
                     for (op, cond) in &self.havings {
                         if first_having {
-                            sql.push_str(&format!("({})", cond));
+                            sql.push('(');
+                            sql.push_str(cond);
+                            sql.push(')');
                             first_having = false;
                         } else {
-                            sql.push_str(&format!(" {} ({})", op, cond));
+                            sql.push(' ');
+                            sql.push_str(op);
+                            sql.push_str(" (");
+                            sql.push_str(cond);
+                            sql.push(')');
                         }
                     }
                 }
 
                 if let Some(order) = &self.order_by {
-                    sql.push_str(&format!(" ORDER BY {}", order));
+                    sql.push_str(" ORDER BY ");
+                    sql.push_str(order);
                 }
 
                 if let Some(limit) = self.limit {
-                    sql.push_str(&format!(" LIMIT {}", limit));
+                    sql.push_str(" LIMIT ");
+                    sql.push_str(&limit.to_string());
                 }
                 if let Some(offset) = self.offset {
-                    sql.push_str(&format!(" OFFSET {}", offset));
+                    sql.push_str(" OFFSET ");
+                    sql.push_str(&offset.to_string());
                 }
 
                 sql
@@ -498,10 +535,10 @@ pub fn generate(
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &self.bindings {
                     match binding {
-                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).unwrap(),
-                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).unwrap(),
-                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).unwrap(),
-                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).unwrap(),
+                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).expect("Failed to add String argument to query"),
+                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).expect("Failed to add Int argument to query"),
+                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).expect("Failed to add Float argument to query"),
+                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).expect("Failed to add Bool argument to query"),
                     }
                 }
 
@@ -561,10 +598,10 @@ pub fn generate(
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &total_builder.bindings {
                     match binding {
-                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).unwrap(),
-                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).unwrap(),
-                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).unwrap(),
-                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).unwrap(),
+                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).expect("Failed to add String argument to query"),
+                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).expect("Failed to add Int argument to query"),
+                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).expect("Failed to add Float argument to query"),
+                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).expect("Failed to add Bool argument to query"),
                     }
                 }
                 
@@ -604,10 +641,10 @@ pub fn generate(
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &builder.bindings {
                     match binding {
-                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).unwrap(),
-                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).unwrap(),
-                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).unwrap(),
-                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).unwrap(),
+                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).expect("Failed to add String argument to query"),
+                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).expect("Failed to add Int argument to query"),
+                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).expect("Failed to add Float argument to query"),
+                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).expect("Failed to add Bool argument to query"),
                     }
                 }
 
@@ -685,10 +722,10 @@ pub fn generate(
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &self.bindings {
                     match binding {
-                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).unwrap(),
-                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).unwrap(),
-                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).unwrap(),
-                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).unwrap(),
+                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).expect("Failed to add String argument to query"),
+                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).expect("Failed to add Int argument to query"),
+                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).expect("Failed to add Float argument to query"),
+                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).expect("Failed to add Bool argument to query"),
                     }
                 }
 
@@ -707,10 +744,10 @@ pub fn generate(
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &builder.bindings {
                     match binding {
-                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).unwrap(),
-                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).unwrap(),
-                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).unwrap(),
-                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).unwrap(),
+                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).expect("Failed to add String argument to query"),
+                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).expect("Failed to add Int argument to query"),
+                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).expect("Failed to add Float argument to query"),
+                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).expect("Failed to add Bool argument to query"),
                     }
                 }
                 let rows: Vec<(String,)> = rust_eloquent::sqlx::query_as_with(&query_str, args).fetch_all(pool).await?;
@@ -725,10 +762,10 @@ pub fn generate(
                 let mut args = rust_eloquent::sqlx::any::AnyArguments::default();
                 for binding in &builder.bindings {
                     match binding {
-                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).unwrap(),
-                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).unwrap(),
-                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).unwrap(),
-                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).unwrap(),
+                        rust_eloquent::EloquentValue::String(s) => rust_eloquent::sqlx::Arguments::add(&mut args, s.clone()).expect("Failed to add String argument to query"),
+                        rust_eloquent::EloquentValue::Int(i) => rust_eloquent::sqlx::Arguments::add(&mut args, *i).expect("Failed to add Int argument to query"),
+                        rust_eloquent::EloquentValue::Float(f) => rust_eloquent::sqlx::Arguments::add(&mut args, *f).expect("Failed to add Float argument to query"),
+                        rust_eloquent::EloquentValue::Bool(b) => rust_eloquent::sqlx::Arguments::add(&mut args, *b).expect("Failed to add Bool argument to query"),
                     }
                 }
                 let rows: Vec<(i32,)> = rust_eloquent::sqlx::query_as_with(&query_str, args).fetch_all(pool).await?;
