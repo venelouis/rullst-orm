@@ -69,6 +69,7 @@ pub fn generate(
     let delete_logic = if has_soft_deletes {
         quote! {
             use rust_eloquent::sqlx::query_builder::QueryBuilder;
+            use rust_eloquent::sqlx::Execute;
             let mut query_builder = QueryBuilder::new("UPDATE ");
             query_builder.push(#table_name);
             query_builder.push(" SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?");
@@ -78,6 +79,7 @@ pub fn generate(
     } else {
         quote! {
             use rust_eloquent::sqlx::query_builder::QueryBuilder;
+            use rust_eloquent::sqlx::Execute;
             let mut query_builder = QueryBuilder::new("DELETE FROM ");
             query_builder.push(#table_name);
             query_builder.push(" WHERE id = ?");
@@ -261,6 +263,7 @@ pub fn generate(
                     let driver = rust_eloquent::Eloquent::driver();
                     if driver == "postgres" {
                         use rust_eloquent::sqlx::query_builder::QueryBuilder;
+                        use rust_eloquent::sqlx::Execute;
                         let mut query_builder = QueryBuilder::new("INSERT INTO ");
                         query_builder.push(#table_name);
                         query_builder.push(" (");
@@ -279,6 +282,7 @@ pub fn generate(
                         self.id = rust_eloquent::sqlx::Row::try_get(&row, "id")?;
                     } else {
                         use rust_eloquent::sqlx::query_builder::QueryBuilder;
+                        use rust_eloquent::sqlx::Execute;
                         let mut query_builder = QueryBuilder::new("INSERT INTO ");
                         query_builder.push(#table_name);
                         query_builder.push(" (");
@@ -316,6 +320,7 @@ pub fn generate(
                         }
                     }
                     use rust_eloquent::sqlx::query_builder::QueryBuilder;
+                    use rust_eloquent::sqlx::Execute;
                     let mut query_builder = QueryBuilder::new("UPDATE ");
                     query_builder.push(#table_name);
                     query_builder.push(" SET ");
@@ -427,16 +432,24 @@ pub fn generate(
             pub async fn restore(&self) -> Result<(), rust_eloquent::sqlx::Error> {
                 if #has_soft_deletes {
                     let pool = rust_eloquent::Eloquent::pool();
-                    let query = format!("UPDATE {} SET deleted_at = NULL WHERE id = ?", #table_name);
-                    rust_eloquent::sqlx::query(&query).bind(self.id).execute(pool).await?;
+                    use rust_eloquent::sqlx::query_builder::QueryBuilder;
+                    let mut query_builder = QueryBuilder::new("UPDATE ");
+                    query_builder.push(#table_name);
+                    query_builder.push(" SET deleted_at = NULL WHERE id = ?");
+                    let query = query_builder.build();
+                    query.bind(self.id).execute(pool).await?;
                 }
                 Ok(())
             }
 
             pub async fn force_delete(&self) -> Result<(), rust_eloquent::sqlx::Error> {
                 let pool = rust_eloquent::Eloquent::pool();
-                let query = format!("DELETE FROM {} WHERE id = ?", #table_name);
-                rust_eloquent::sqlx::query(&query).bind(self.id).execute(pool).await?;
+                use rust_eloquent::sqlx::query_builder::QueryBuilder;
+                let mut query_builder = QueryBuilder::new("DELETE FROM ");
+                query_builder.push(#table_name);
+                query_builder.push(" WHERE id = ?");
+                let query = query_builder.build();
+                query.bind(self.id).execute(pool).await?;
                 Ok(())
             }
 

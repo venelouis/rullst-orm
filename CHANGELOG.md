@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2026-05-28
+
+### Fixed
+- **SqlSafeStr Compatibility:** Replaced all `query_as_with` and `query_with` calls with `QueryBuilder` in builder.rs for full sqlx 0.9 compatibility
+- **Execute Trait:** Added `use sqlx::Execute` imports where `query.sql()` is called to enable the method
+- **QueryBuilder Usage:** Converted all dynamic SQL string construction to use QueryBuilder instead of format!
+
+---
+
 ## [1.1.6] - 2026-05-28
 
 ### Fixed
