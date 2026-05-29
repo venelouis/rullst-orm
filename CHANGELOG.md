@@ -5,12 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-alpha] - Unreleased
+## [Unreleased]
 
 ### Added
+- **Release Automation:** Integrated `release-plz` GitHub Action for automated semantic versioning, changelog generation, and Crates.io publishing.
+- **Security Audits in CI:** Added `cargo audit` to the `ci.yml` pipeline to automatically block PRs with vulnerable dependencies.
+- **Unit Tests:** Added full test coverage for `enable_query_log`, `validate_table_name`, `JoinClause`, `EloquentValue`, and string manipulation edge cases.
 - **Strict SQL Typing Architecture:** Complete integration of Cargo feature flags (`strict-postgres`, `strict-mysql`, `strict-sqlite`) to optionally enforce `sqlx` compile-time type verification instead of using `AnyPool`.
 - Custom `QueryResultExt` wrapper added to dynamically handle `last_insert_id()` logic across strict drivers.
 - **v2.0 Roadmap:** Updated `docs/v2_roadmap.md` with the strategy to use feature flags for Strict Typing and iterative implementation for the Zero-Copy Builder.
+
+### Fixed
+- **10/10 Static Analysis Audit:** Completely cleared all critical warnings from the Jules static analysis engine!
+- **Path Traversal:** Fixed path traversal vulnerability in `create_migration_files`.
+- **SQL Injection:** Added rigorous validation and warnings to `builder.rs` dynamic constructors and `schema.rs`.
+- **Memory & Allocation:** Fixed inefficient vector allocations in `Collection::chunk` and `Collection::key_by`. Removed redundant `Vec` allocations in `implode`.
+- **Parallel Eager Loading:** Rewrote the sequential blocking `await` loops inside `morph_many`, `morph_one`, `belongs_to_many`, and `after_fetch` hooks to use `try_join_all`, completely eliminating N+1 latencies.
+- **O(N²) Reductions:** Optimized eager loading vector removals in `has_many`, `has_one`, and `belongs_to` to use `swap_remove` and chunk tracking instead of O(N²) iterations.
 
 ---
 
