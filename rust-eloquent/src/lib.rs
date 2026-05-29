@@ -4,10 +4,10 @@ pub use sqlx::AnyPool as EloquentPool;
 #[cfg(feature = "strict-postgres")]
 pub use sqlx::PgPool as EloquentPool;
 
-#[cfg(feature = "strict-mysql")]
+#[cfg(all(feature = "strict-mysql", not(feature = "strict-postgres")))]
 pub use sqlx::MySqlPool as EloquentPool;
 
-#[cfg(feature = "strict-sqlite")]
+#[cfg(all(feature = "strict-sqlite", not(feature = "strict-postgres"), not(feature = "strict-mysql")))]
 pub use sqlx::SqlitePool as EloquentPool;
 
 #[cfg(not(any(feature = "strict-postgres", feature = "strict-mysql", feature = "strict-sqlite")))]
@@ -178,13 +178,13 @@ impl Eloquent {
         pool.begin().await
     }
 
-    #[cfg(feature = "strict-mysql")]
+    #[cfg(all(feature = "strict-mysql", not(feature = "strict-postgres")))]
     pub async fn begin_transaction() -> Result<sqlx::Transaction<'static, sqlx::MySql>, sqlx::Error> {
         let pool = Self::pool();
         pool.begin().await
     }
 
-    #[cfg(feature = "strict-sqlite")]
+    #[cfg(all(feature = "strict-sqlite", not(feature = "strict-postgres"), not(feature = "strict-mysql")))]
     pub async fn begin_transaction() -> Result<sqlx::Transaction<'static, sqlx::Sqlite>, sqlx::Error> {
         let pool = Self::pool();
         pool.begin().await
