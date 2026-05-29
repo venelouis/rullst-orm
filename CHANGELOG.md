@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Release Automation:** Integrated `release-plz` GitHub Action for automated semantic versioning, changelog generation, and Crates.io publishing.
+- **Security Audits in CI:** Added `cargo audit` to the `ci.yml` pipeline to automatically block PRs with vulnerable dependencies.
+- **Unit Tests:** Added full test coverage for `enable_query_log`, `validate_table_name`, `JoinClause`, `EloquentValue`, and string manipulation edge cases.
+
+### Fixed
+- **10/10 Static Analysis Audit:** Completely cleared all critical warnings from the Jules static analysis engine!
+- **Path Traversal:** Fixed path traversal vulnerability in `create_migration_files`.
+- **SQL Injection:** Added rigorous validation and warnings to `builder.rs` dynamic constructors and `schema.rs`.
+- **Memory & Allocation:** Fixed inefficient vector allocations in `Collection::chunk` and `Collection::key_by`. Removed redundant `Vec` allocations in `implode`.
+- **Parallel Eager Loading:** Rewrote the sequential blocking `await` loops inside `morph_many`, `morph_one`, `belongs_to_many`, and `after_fetch` hooks to use `try_join_all`, completely eliminating N+1 latencies.
+- **O(N²) Reductions:** Optimized eager loading vector removals in `has_many`, `has_one`, and `belongs_to` to use `swap_remove` and chunk tracking instead of O(N²) iterations.
+
+---
+
 ## [1.1.9] - 2026-05-28
 
 ### Fixed

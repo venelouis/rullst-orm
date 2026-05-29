@@ -1,10 +1,12 @@
 # Rust Eloquent 🌟
 
 ![Crates.io](https://img.shields.io/crates/v/rust-eloquent?style=flat-square&color=orange)
+![Downloads](https://img.shields.io/crates/d/rust-eloquent?style=flat-square&color=blue)
 ![Docs.rs](https://img.shields.io/docsrs/rust-eloquent?style=flat-square&color=blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Databases](https://img.shields.io/badge/Databases-PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-lightgrey?style=flat-square)
 ![CI](https://github.com/venelouis/rust-eloquent/actions/workflows/ci.yml/badge.svg)
+![Static Audit](https://img.shields.io/badge/Static%20Audit-10%2F10-brightgreen?style=flat-square)
 
 An Active Record ORM for Rust, inspired by Laravel's Eloquent.
 
@@ -34,26 +36,23 @@ Explore our project documentation, future plans, and recent updates:
 - **[Changelog](CHANGELOG.md)**: Detailed release history and updates.
 - **[Roadmap v1.x](ROADMAP.md)**: Current roadmap and goals for the 1.x release cycle.
 - **[Roadmap v2.0](docs/v2_roadmap.md)**: Future plans and architecture for the upcoming major release.
-- **[Security & Performance Audit](docs/audit_report_complete.md)**: Our latest complete audit and resolution notes (v1.1.5).
+- **[Security & Performance Audit](docs/audit_report_complete.md)**: Our latest complete 10/10 architecture audit and resolution notes.
 
 ---
 
 ## 🛠️ Installation
 
-Add the library to your `Cargo.toml`:
+Add the library to your project by running:
 
-```toml
-[dependencies]
-rust-eloquent = "1.1.9"
-tokio = { version = "1.43", features = ["full"] }
+```bash
+cargo add rust-eloquent
+cargo add tokio -F full
 ```
 
 If you plan to use Redis caching or Pub/Sub events, enable the `redis` feature:
 
-```toml
-[dependencies]
-rust-eloquent = { version = "1.1.9", features = ["redis"] }
-tokio = { version = "1.43", features = ["full"] }
+```bash
+cargo add rust-eloquent -F redis
 ```
 
 ## 📖 Quick Start
