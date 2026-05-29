@@ -2,8 +2,9 @@ name: Rust CI & Publish
 
 on:
   push:
-    branches: [ "main", "master" ]
-    tags: [ "v*.*.*" ]
+    branches: [ "main", "dev" ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ "main", "master" ]
 
