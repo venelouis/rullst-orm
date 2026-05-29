@@ -132,9 +132,7 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
                             let key = parts[0].trim();
                             let val = parts[1].trim().trim_matches('"');
                             // Validate relation attributes
-                            if let Err(e) = validate_relation_attribute(key, val, field.span()) {
-                                return Err(e);
-                            }
+                            validate_relation_attribute(key, val, field.span())?;
                             match key {
                                 "has_many" => { is_relation = true; rel_type = "has_many".to_string(); rel_model = val.to_string(); }
                                 "has_one" => { is_relation = true; rel_type = "has_one".to_string(); rel_model = val.to_string(); }

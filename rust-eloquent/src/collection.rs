@@ -54,7 +54,7 @@ impl<T> EloquentCollection<T> for Vec<T> {
             return vec![self];
         }
 
-        let mut chunks = Vec::with_capacity((self.len() + size - 1) / size);
+        let mut chunks = Vec::with_capacity(self.len().div_ceil(size));
         let mut current_chunk = Vec::with_capacity(size);
 
         for item in self {

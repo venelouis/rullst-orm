@@ -1,4 +1,3 @@
-use rust_eloquent_macros::Eloquent;
 use syn::{parse_quote, DeriveInput};
 
 #[test]

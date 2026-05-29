@@ -81,31 +81,31 @@ impl Blueprint {
             is_auto_increment: true,
             default_value: None,
         });
-        self.columns.last_mut().unwrap()
+        self.columns.last_mut().expect("Column should exist after push")
     }
 
     pub fn string(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "TEXT");
         self.columns.push(col);
-        self.columns.last_mut().unwrap()
+        self.columns.last_mut().expect("Column should exist after push")
     }
 
     pub fn integer(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "INTEGER");
         self.columns.push(col);
-        self.columns.last_mut().unwrap()
+        self.columns.last_mut().expect("Column should exist after push")
     }
 
     pub fn float(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "REAL");
         self.columns.push(col);
-        self.columns.last_mut().unwrap()
+        self.columns.last_mut().expect("Column should exist after push")
     }
 
     pub fn boolean(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "INTEGER");
         self.columns.push(col);
-        self.columns.last_mut().unwrap()
+        self.columns.last_mut().expect("Column should exist after push")
     }
 
     pub fn timestamps(&mut self) {
@@ -121,7 +121,7 @@ impl Blueprint {
     pub fn soft_deletes(&mut self) {
         let col = Column::new("deleted_at", "TEXT");
         self.columns.push(col);
-        self.columns.last_mut().unwrap().nullable();
+        self.columns.last_mut().expect("Column should exist after push").nullable();
     }
     
     pub fn build(&self) -> String {
@@ -269,7 +269,7 @@ async fn status_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Er
         std::collections::HashSet::new()
     };
 
-    println!("{:<40} | {}", "Migration Name", "Status");
+    println!("{:<40} | Status", "Migration Name");
     println!("{}", "-".repeat(55));
     for m in migrations {
         let name = m.name();
