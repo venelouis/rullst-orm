@@ -49,6 +49,85 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
         quote! {}
     };
 
+    let tenant_scope_logic = if !parsed.tenant_column.is_empty() {
+        let col = &parsed.tenant_column;
+        quote! {
+            if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
+                builder = builder.where_eq(#col, tenant);
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let tenant_set_logic = if !parsed.tenant_column.is_empty() {
+        let col_ident = syn::Ident::new(&parsed.tenant_column, name.span());
+        quote! {
+            if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
+                if let Ok(val) = tenant.try_into() {
+                    self.#col_ident = val;
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let audit_before_update = if parsed.auditable {
+        quote! {
+            let old_model_for_audit = if !is_new {
+                let pool = rullst_orm::Orm::read_pool();
+                rullst_orm::sqlx::query_as::<_, Self>(rullst_orm::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE id = ?", #table_name).as_str()))
+                    .bind(self.id)
+                    .fetch_optional(pool)
+                    .await
+                    .unwrap_or(None)
+            } else {
+                None
+            };
+        }
+    } else {
+        quote! {}
+    };
+
+    let audit_after_save = if parsed.auditable {
+        quote! {
+            if is_new {
+                let _ = rullst_orm::audit::log_audit(
+                    #table_name,
+                    self.id,
+                    "created",
+                    None,
+                    Some(self.to_json())
+                ).await;
+            } else if let Some(old_model) = old_model_for_audit {
+                let _ = rullst_orm::audit::log_audit_diff(
+                    #table_name,
+                    self.id,
+                    "updated",
+                    &old_model.to_json(),
+                    &self.to_json()
+                ).await;
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let audit_after_delete = if parsed.auditable {
+        quote! {
+            let _ = rullst_orm::audit::log_audit(
+                #table_name,
+                self.id,
+                "deleted",
+                Some(self.to_json()),
+                None
+            ).await;
+        }
+    } else {
+        quote! {}
+    };
+
     let mut insert_columns = vec![];
     let mut insert_placeholders = vec![];
     let mut bind_inserts = vec![];
@@ -219,6 +298,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
             pub fn query() -> #builder_name {
                 let mut builder = #builder_name::new();
                 #global_scope_logic
+                #tenant_scope_logic
                 builder
             }
 
@@ -251,6 +331,10 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
             where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 let is_new = self.id == 0;
+                if is_new {
+                    #tenant_set_logic
+                }
+                #audit_before_update
                 #hook_before_save
                 {
                     let observers = {
@@ -272,7 +356,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                         }
                     }
                     let driver = rullst_orm::Orm::driver();
-                    if driver == "postgres" {
+                    if driver == "postgres" || driver == "sqlite" {
                         use rullst_orm::sqlx::query_builder::QueryBuilder;
                         use rullst_orm::sqlx::Execute;
                         let mut query_builder = QueryBuilder::new("INSERT INTO ");
@@ -392,6 +476,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                         eprintln!("[Redis Error] Failed to publish saved event: {}", e);
                     }
                 }
+                #audit_after_save
                 #hook_after_save
                 Ok(())
             }
@@ -443,6 +528,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                         eprintln!("[Redis Error] Failed to publish deleted event: {}", e);
                     }
                 }
+                #audit_after_delete
                 #hook_after_delete
                 Ok(())
             }

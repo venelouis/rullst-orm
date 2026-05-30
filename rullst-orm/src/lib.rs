@@ -39,11 +39,16 @@ pub use sqlx;
 pub use redis;
 pub mod collection;
 pub mod database;
+pub mod audit;
 pub mod schema;
+pub mod tenant;
 pub mod types;
 
+// Re-exports
 pub use collection::RullstCollection;
 pub use database::RullstDatabase;
+pub use rullst_orm_macros::Orm;
+pub use tenant::{get_tenant_id, with_tenant};
 pub use types::Json;
 
 // Re-export async_trait so the macro can use it implicitly
@@ -103,6 +108,43 @@ impl From<f64> for RullstValue {
 impl From<bool> for RullstValue {
     fn from(b: bool) -> Self {
         RullstValue::Bool(b)
+    }
+}
+
+impl TryFrom<RullstValue> for String {
+    type Error = &'static str;
+    fn try_from(val: RullstValue) -> Result<Self, Self::Error> {
+        match val {
+            RullstValue::String(s) => Ok(s),
+            _ => Err("Not a string"),
+        }
+    }
+}
+impl TryFrom<RullstValue> for i32 {
+    type Error = &'static str;
+    fn try_from(val: RullstValue) -> Result<Self, Self::Error> {
+        match val {
+            RullstValue::Int(i) => Ok(i),
+            _ => Err("Not an i32"),
+        }
+    }
+}
+impl TryFrom<RullstValue> for f64 {
+    type Error = &'static str;
+    fn try_from(val: RullstValue) -> Result<Self, Self::Error> {
+        match val {
+            RullstValue::Float(f) => Ok(f),
+            _ => Err("Not an f64"),
+        }
+    }
+}
+impl TryFrom<RullstValue> for bool {
+    type Error = &'static str;
+    fn try_from(val: RullstValue) -> Result<Self, Self::Error> {
+        match val {
+            RullstValue::Bool(b) => Ok(b),
+            _ => Err("Not a bool"),
+        }
     }
 }
 

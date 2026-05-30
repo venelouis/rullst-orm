@@ -44,6 +44,8 @@ pub struct ParsedModel {
     pub name: syn::Ident,
     pub table_name: String,
     pub global_scope: String,
+    pub tenant_column: String,
+    pub auditable: bool,
     pub before_save: String,
     pub after_save: String,
     pub before_delete: String,
@@ -71,6 +73,8 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let name = input.ident.clone();
     let mut table_name = format!("{}s", name.to_string().to_lowercase());
     let mut global_scope = String::new();
+    let mut tenant_column = String::new();
+    let mut auditable = false;
     let mut before_save = String::new();
     let mut after_save = String::new();
     let mut before_delete = String::new();
@@ -84,19 +88,25 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
                 Err(_) => continue, // Skip malformed attributes
             };
             for part in token_str.split(',') {
-                let parts: Vec<&str> = part.split('=').collect();
-                if parts.len() == 2 {
-                    let key = parts[0].trim();
-                    let val = parts[1].trim().trim_matches('"');
-                    match key {
-                        "table" => table_name = val.to_string(),
-                        "global_scope" => global_scope = val.to_string(),
-                        "before_save" => before_save = val.to_string(),
-                        "after_save" => after_save = val.to_string(),
-                        "before_delete" => before_delete = val.to_string(),
-                        "after_delete" => after_delete = val.to_string(),
-                        "after_fetch" => after_fetch = val.to_string(),
-                        _ => {}
+                let trimmed = part.trim();
+                if trimmed == "auditable" {
+                    auditable = true;
+                } else {
+                    let parts: Vec<&str> = trimmed.split('=').collect();
+                    if parts.len() == 2 {
+                        let key = parts[0].trim();
+                        let val = parts[1].trim().trim_matches('"');
+                        match key {
+                            "table" => table_name = val.to_string(),
+                            "global_scope" => global_scope = val.to_string(),
+                            "tenant_column" => tenant_column = val.to_string(),
+                            "before_save" => before_save = val.to_string(),
+                            "after_save" => after_save = val.to_string(),
+                            "before_delete" => before_delete = val.to_string(),
+                            "after_delete" => after_delete = val.to_string(),
+                            "after_fetch" => after_fetch = val.to_string(),
+                            _ => {}
+                        }
                     }
                 }
             }
@@ -220,6 +230,8 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
         name,
         table_name,
         global_scope,
+        tenant_column,
+        auditable,
         before_save,
         after_save,
         before_delete,

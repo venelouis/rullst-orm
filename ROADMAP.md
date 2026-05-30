@@ -72,6 +72,7 @@ Our goal is to provide tools that normally cost thousands of dollars, completely
 - [ ] **Built-in Full-Text Search (Scout)**: `.search("query")` method that automatically syncs your models with Meilisearch, Algolia, or Elasticsearch upon saving.
 - [ ] **Rullst ORM Admin Panel**: A drop-in crate that reads your `#[derive(Orm)]` models and instantly generates a beautiful web dashboard to manage your data without writing frontend code.
 - [ ] **Wasm & Edge Computing**: Running the ORM directly on Cloudflare Workers or Vercel Edge with Serverless DB drivers (PlanetScale, Neon).
+- [ ] **API Resources & Transformers**: A declarative way to transform Rullst Models and eager-loaded relationships into clean JSON API responses, handling hidden fields, date formatting, and nested relations effortlessly.
 
 ## 🧠 Phase 7: The Future (AI, Quantum & Infrastructure)
 
