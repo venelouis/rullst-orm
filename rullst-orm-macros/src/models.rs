@@ -128,6 +128,69 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
         quote! {}
     };
 
+    let scout_update = if parsed.searchable {
+        quote! {
+            if let Some(engine) = rullst_orm::scout::get_search_engine() {
+                let payload: rullst_orm::serde_json::Value = rullst_orm::serde_json::from_str(&self.to_json()).unwrap_or(rullst_orm::serde_json::Value::Null);
+                let _ = engine.update(#table_name, self.id, payload).await;
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let scout_delete = if parsed.searchable {
+        quote! {
+            if let Some(engine) = rullst_orm::scout::get_search_engine() {
+                let _ = engine.delete(#table_name, self.id).await;
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let search_method = if parsed.searchable {
+        let cols = parsed.normal_fields.iter().map(|f| f.to_string()).collect::<Vec<_>>();
+        quote! {
+            pub async fn search(query: &str) -> #builder_name {
+                let mut base_builder = #builder_name::new();
+                if let Some(engine) = rullst_orm::scout::get_search_engine() {
+                    let ids = engine.search(#table_name, query).await.unwrap_or_default();
+                    if ids.is_empty() {
+                        base_builder = base_builder.where_eq("id", 0); // impossible match
+                    } else {
+                        let mut sql_ids = String::new();
+                        for (i, id) in ids.iter().enumerate() {
+                            sql_ids.push_str(&id.to_string());
+                            if i < ids.len() - 1 {
+                                sql_ids.push_str(",");
+                            }
+                        }
+                        base_builder = base_builder.where_raw(format!("id IN ({})", sql_ids).as_str());
+                    }
+                    return base_builder;
+                }
+
+                let driver = rullst_orm::Orm::driver();
+                let cast_type = if driver == "mysql" { "CHAR" } else { "TEXT" };
+                let like_query = format!("%{}%", query);
+                
+                let mut raw_where = String::new();
+                let cols = vec![#(#cols),*];
+                for (i, col) in cols.iter().enumerate() {
+                    raw_where.push_str(&format!("CAST({} AS {}) LIKE '{}'", col, cast_type, like_query));
+                    if i < cols.len() - 1 {
+                        raw_where.push_str(" OR ");
+                    }
+                }
+                
+                base_builder.where_raw(raw_where.as_str())
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let mut insert_columns = vec![];
     let mut insert_placeholders = vec![];
     let mut bind_inserts = vec![];
@@ -294,6 +357,8 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 static LIST: std::sync::OnceLock<std::sync::RwLock<Vec<std::sync::Arc<dyn #observer_trait_name + Send + Sync>>>> = std::sync::OnceLock::new();
                 LIST.get_or_init(|| std::sync::RwLock::new(vec![]))
             }
+
+            #search_method
 
             pub fn query() -> #builder_name {
                 let mut builder = #builder_name::new();
@@ -477,6 +542,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                     }
                 }
                 #audit_after_save
+                #scout_update
                 #hook_after_save
                 Ok(())
             }
@@ -529,6 +595,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                     }
                 }
                 #audit_after_delete
+                #scout_delete
                 #hook_after_delete
                 Ok(())
             }

@@ -46,6 +46,7 @@ pub struct ParsedModel {
     pub global_scope: String,
     pub tenant_column: String,
     pub auditable: bool,
+    pub searchable: bool,
     pub before_save: String,
     pub after_save: String,
     pub before_delete: String,
@@ -75,6 +76,7 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let mut global_scope = String::new();
     let mut tenant_column = String::new();
     let mut auditable = false;
+    let mut searchable = false;
     let mut before_save = String::new();
     let mut after_save = String::new();
     let mut before_delete = String::new();
@@ -91,6 +93,8 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
                 let trimmed = part.trim();
                 if trimmed == "auditable" {
                     auditable = true;
+                } else if trimmed == "searchable" {
+                    searchable = true;
                 } else {
                     let parts: Vec<&str> = trimmed.split('=').collect();
                     if parts.len() == 2 {
@@ -232,6 +236,7 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
         global_scope,
         tenant_column,
         auditable,
+        searchable,
         before_save,
         after_save,
         before_delete,

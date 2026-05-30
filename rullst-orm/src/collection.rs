@@ -34,6 +34,11 @@ pub trait RullstCollection<T> {
     where
         F: Fn(&T) -> K,
         K: Ord;
+
+    /// Serializes the entire collection using an ApiResource transformer
+    fn collection_resource(&self) -> serde_json::Value
+    where
+        T: crate::resource::ApiResource;
 }
 
 impl<T> RullstCollection<T> for Vec<T> {
@@ -110,5 +115,12 @@ impl<T> RullstCollection<T> for Vec<T> {
         K: Ord,
     {
         self.iter().min_by_key(|item| f(*item))
+    }
+
+    fn collection_resource(&self) -> serde_json::Value
+    where
+        T: crate::resource::ApiResource,
+    {
+        crate::resource::ResourceCollection::new(self).resolve()
     }
 }

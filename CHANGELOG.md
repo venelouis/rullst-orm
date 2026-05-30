@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Native Multi-Tenancy**: Added a frictionless SaaS multi-tenancy system powered by `tokio::task_local!`. Wrapping a block in `with_tenant("id", ...)` automatically scopes all `SELECT`, `UPDATE`, `DELETE` queries to that tenant, and magically populates `tenant_id` on new `INSERT` models. Enabled via `#[orm(tenant_column = "tenant_id")]`.
 - **Audit Trails (Diff Tracking)**: Added an automatic revision history feature. Simply flag a struct with `#[orm(auditable)]`, and the ORM will intercept updates and deletes, diff the JSON state of the row, and log the exact `old_values` and `new_values` into a centralized `rullst_audits` history table.
+- **Built-in Full-Text Search (Scout)**: Implemented `.search("query")` method and `SearchEngine` trait. Automatically syncs models with external engines (like Meilisearch) upon saving, or falls back to robust, driver-aware native SQL `LIKE` queries out-of-the-box.
+- **Rullst ORM Admin Panel**: Delivered a drop-in HTML dashboard endpoint (`rullst_orm::admin::dashboard_html()`). It generates a beautiful, rich dark-mode web dashboard that developers can serve natively via `axum`, `actix`, or any web framework, zeroing the cost of a traditional backend UI.
+- **API Resources & Transformers**: Added Laravel-style `ApiResource` trait and `.collection_resource()` mapping. Effortlessly filter and map model properties, preventing sensitive data leaks in JSON API endpoints.
 - **SQLite ID Hydration Fix**: Addressed a severe SQLx limitation by forcing SQLite to utilize `RETURNING id` during model creation, bypassing `AnyPool`'s inability to return `last_insert_rowid()`.
 - **Release Automation:** Integrated GitHub Actions CI/CD for automated Crates.io publishing triggered by `v*` Git tags.
 - **Security Audits in CI:** Added `cargo audit` to the `ci.yml` pipeline to automatically block PRs with vulnerable dependencies.
