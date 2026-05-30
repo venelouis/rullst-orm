@@ -14,7 +14,6 @@ pub struct User {
 // -----------------------------------------
 // The macro generated UserQueryBuilder. We can naturally add methods to it!
 impl UserQueryBuilder {
-    
     // Global Scope definition (called automatically by User::query())
     pub fn active_only(mut self) -> Self {
         self = self.where_eq("is_active", 1);
@@ -41,20 +40,32 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Orm::init("sqlite://scopes_test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query("
+    rullst_orm::sqlx::query(
+        "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             is_active INTEGER DEFAULT 1,
             votes INTEGER DEFAULT 0
         );
-    ").execute(pool).await?;
+    ",
+    )
+    .execute(pool)
+    .await?;
 
     // Insert dummy data
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Alice', 1, 150)").execute(pool).await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Bob', 0, 200)").execute(pool).await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Charlie', 1, 50)").execute(pool).await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Amanda', 1, 120)").execute(pool).await?;
+    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Alice', 1, 150)")
+        .execute(pool)
+        .await?;
+    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Bob', 0, 200)")
+        .execute(pool)
+        .await?;
+    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Charlie', 1, 50)")
+        .execute(pool)
+        .await?;
+    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Amanda', 1, 120)")
+        .execute(pool)
+        .await?;
 
     // 1. Query with Global Scope (Automatically filters out Bob because is_active = 0)
     let active_users = User::query().get().await?;
@@ -62,7 +73,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     for user in active_users {
         println!("- {} (Votes: {})", user.name, user.votes);
     }
-    
+
     // 2. Query with Global Scope + Local Scopes (Popular + Name starts with A)
     let popular_a_users = User::query().popular().name_starts_with("A").get().await?;
     println!("\n--- Popular Active Users starting with 'A' (Global + Local Scopes) ---");
@@ -74,7 +85,10 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let all_users = UserQueryBuilder::new().get().await?;
     println!("\n--- All Users (Bypassing Global Scopes) ---");
     for user in all_users {
-        println!("- {} (Active: {}, Votes: {})", user.name, user.is_active, user.votes);
+        println!(
+            "- {} (Active: {}, Votes: {})",
+            user.name, user.is_active, user.votes
+        );
     }
 
     Ok(())

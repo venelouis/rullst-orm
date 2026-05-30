@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 /// An extension trait that brings Laravel-style Collection methods natively to Rust's Vec<T>.
-pub trait EloquentCollection<T> {
+pub trait RullstCollection<T> {
     /// Keys the collection by the given closure's return value
     fn key_by<K, F>(self, f: F) -> HashMap<K, T>
     where
@@ -36,7 +36,7 @@ pub trait EloquentCollection<T> {
         K: Ord;
 }
 
-impl<T> EloquentCollection<T> for Vec<T> {
+impl<T> RullstCollection<T> for Vec<T> {
     fn key_by<K, F>(self, f: F) -> HashMap<K, T>
     where
         F: Fn(&T) -> K,

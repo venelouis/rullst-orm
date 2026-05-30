@@ -1,5 +1,5 @@
 use rullst_orm::Orm;
-use rullst_orm::schema::{Schema, Migration, run_artisan};
+use rullst_orm::schema::{Migration, Schema, run_artisan};
 
 pub struct CreateUsersMigration;
 
@@ -14,7 +14,8 @@ impl Migration for CreateUsersMigration {
             table.id();
             table.string("username").not_null();
             table.timestamps();
-        }).await
+        })
+        .await
     }
 
     async fn down(&self) -> Result<(), rullst_orm::sqlx::Error> {
@@ -35,7 +36,8 @@ impl Migration for CreatePostsMigration {
             table.id();
             table.string("title").not_null();
             table.timestamps();
-        }).await
+        })
+        .await
     }
 
     async fn down(&self) -> Result<(), rullst_orm::sqlx::Error> {
@@ -60,9 +62,10 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // Verify migrations table and schemas
     let pool = Orm::pool();
-    let rows: Vec<(i32, String, i32)> = rullst_orm::sqlx::query_as(
-        "SELECT id, migration, batch FROM migrations"
-    ).fetch_all(pool).await?;
+    let rows: Vec<(i32, String, i32)> =
+        rullst_orm::sqlx::query_as("SELECT id, migration, batch FROM migrations")
+            .fetch_all(pool)
+            .await?;
 
     println!("\n--- Migrations Table Status ---");
     for (id, name, batch) in &rows {
@@ -70,14 +73,16 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     }
 
     // Verify tables exist
-    let count: (i64,) = rullst_orm::sqlx::query_as("SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name IN ('users', 'posts')")
-        .fetch_one(pool)
-        .await?;
+    let count: (i64,) = rullst_orm::sqlx::query_as(
+        "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name IN ('users', 'posts')",
+    )
+    .fetch_one(pool)
+    .await?;
     println!("Tables before rollback: {}", count.0);
 
     // Clean up
     let _ = std::fs::remove_file("artisan_test.db");
-    
+
     println!("\n🎉 Artisan Migrations State Machine verified successfully!");
 
     Ok(())

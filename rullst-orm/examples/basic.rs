@@ -15,17 +15,29 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let pool = Orm::pool();
 
     rullst_orm::sqlx::query(
-        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)",
     )
     .execute(pool)
     .await?;
 
-    rullst_orm::sqlx::query("INSERT INTO users (name, email) VALUES ('Vene Louis', 'vene@cosmos.com')").execute(pool).await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, email) VALUES ('John Doe', 'john@example.com')").execute(pool).await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, email) VALUES ('Maria Doe', 'maria@example.com')").execute(pool).await?;
+    rullst_orm::sqlx::query(
+        "INSERT INTO users (name, email) VALUES ('Vene Louis', 'vene@cosmos.com')",
+    )
+    .execute(pool)
+    .await?;
+    rullst_orm::sqlx::query(
+        "INSERT INTO users (name, email) VALUES ('John Doe', 'john@example.com')",
+    )
+    .execute(pool)
+    .await?;
+    rullst_orm::sqlx::query(
+        "INSERT INTO users (name, email) VALUES ('Maria Doe', 'maria@example.com')",
+    )
+    .execute(pool)
+    .await?;
 
     println!("\n🚀 Testando o Query Builder Encadeável:");
-    
+
     let users = User::query()
         .where_like("email", "%@example.com")
         .order_by_name_desc()

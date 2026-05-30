@@ -23,35 +23,68 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Orm::init("sqlite://test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query("
+    rullst_orm::sqlx::query(
+        "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
         );
-    ").execute(pool).await?;
+    ",
+    )
+    .execute(pool)
+    .await?;
 
-    rullst_orm::sqlx::query("
+    rullst_orm::sqlx::query(
+        "
         CREATE TABLE posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             title TEXT NOT NULL,
             status TEXT NOT NULL
         );
-    ").execute(pool).await?;
+    ",
+    )
+    .execute(pool)
+    .await?;
 
     // Create users
-    let mut u1 = User { id: 0, name: "Alice".to_string() };
-    let mut u2 = User { id: 0, name: "Bob".to_string() };
+    let mut u1 = User {
+        id: 0,
+        name: "Alice".to_string(),
+    };
+    let mut u2 = User {
+        id: 0,
+        name: "Bob".to_string(),
+    };
     u1.save().await?;
     u2.save().await?;
 
     let saved_u1 = User::query().first().await?.unwrap();
-    let saved_u2 = User::query().where_eq("name", "Bob").first().await?.unwrap();
+    let saved_u2 = User::query()
+        .where_eq("name", "Bob")
+        .first()
+        .await?
+        .unwrap();
 
     // Create posts
-    let mut p1 = Post { id: 0, user_id: saved_u1.id, title: "Rust Masterpiece".to_string(), status: "published".to_string() };
-    let mut p2 = Post { id: 0, user_id: saved_u1.id, title: "Vibe Coding".to_string(), status: "draft".to_string() };
-    let mut p3 = Post { id: 0, user_id: saved_u2.id, title: "SeaORM Guide".to_string(), status: "published".to_string() };
+    let mut p1 = Post {
+        id: 0,
+        user_id: saved_u1.id,
+        title: "Rust Masterpiece".to_string(),
+        status: "published".to_string(),
+    };
+    let mut p2 = Post {
+        id: 0,
+        user_id: saved_u1.id,
+        title: "Vibe Coding".to_string(),
+        status: "draft".to_string(),
+    };
+    let mut p3 = Post {
+        id: 0,
+        user_id: saved_u2.id,
+        title: "SeaORM Guide".to_string(),
+        status: "published".to_string(),
+    };
     p1.save().await?;
     p2.save().await?;
     p3.save().await?;
@@ -64,7 +97,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
             Post::query()
                 .select_cols(&[PostColumn::Id])
                 .where_column("posts.user_id", "users.id")
-                .where_eq("posts.status", "published")
+                .where_eq("posts.status", "published"),
         )
         .get()
         .await?;
@@ -87,7 +120,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
         .get()
         .await?;
 
-    // Since FromRow doesn't map virtual select_raw author_name directly into Post struct without extra fields, 
+    // Since FromRow doesn't map virtual select_raw author_name directly into Post struct without extra fields,
     // we can fetch them or prove it compiles and runs without sqlite schema exceptions.
     println!("Returned posts count for Alice: {}", posts_with_users.len());
     for p in &posts_with_users {

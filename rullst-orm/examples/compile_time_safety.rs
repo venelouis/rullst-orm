@@ -1,5 +1,5 @@
+use rullst_orm::schema::{Blueprint, Schema};
 use rullst_orm::{Orm, sqlx::FromRow};
-use rullst_orm::schema::{Schema, Blueprint};
 
 // When we derive Orm, it will generate a `UserColumn` enum automatically
 // because our struct is named `User`!
@@ -22,12 +22,21 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
         table.id();
         table.string("full_name").not_null();
         table.integer("age").not_null();
-    }).await?;
+    })
+    .await?;
 
     // 2. Insert Test Data
-    let mut u1 = User { id: 0, full_name: "Alice Smith".to_string(), age: 25 };
+    let mut u1 = User {
+        id: 0,
+        full_name: "Alice Smith".to_string(),
+        age: 25,
+    };
     u1.save().await?;
-    let mut u2 = User { id: 0, full_name: "Bob Jones".to_string(), age: 30 };
+    let mut u2 = User {
+        id: 0,
+        full_name: "Bob Jones".to_string(),
+        age: 30,
+    };
     u2.save().await?;
 
     // --------------------------------------------------------------------------------

@@ -1,25 +1,25 @@
-use quote::quote;
-use proc_macro2::TokenStream;
 use crate::parser::ParsedModel;
+use proc_macro2::TokenStream;
+use quote::quote;
 
 /// Generates the magic methods for each field (where_field, order_by_field, etc)
 fn generate_magic_methods(parsed: &ParsedModel) -> Vec<TokenStream> {
     let mut magic_methods = vec![];
     for field_name in &parsed.normal_fields {
         let field_name_str = field_name.to_string();
-        
+
         let where_method = quote::format_ident!("where_{}", field_name);
         let or_where_method = quote::format_ident!("or_where_{}", field_name);
         let where_not_method = quote::format_ident!("where_not_{}", field_name);
-        
+
         magic_methods.push(quote! {
-            pub fn #where_method<T: Into<rullst_orm::EloquentValue>>(self, value: T) -> Self {
+            pub fn #where_method<T: Into<rullst_orm::RullstValue>>(self, value: T) -> Self {
                 self.where_eq(#field_name_str, value)
             }
-            pub fn #or_where_method<T: Into<rullst_orm::EloquentValue>>(self, value: T) -> Self {
+            pub fn #or_where_method<T: Into<rullst_orm::RullstValue>>(self, value: T) -> Self {
                 self.or_where(#field_name_str, value)
             }
-            pub fn #where_not_method<T: Into<rullst_orm::EloquentValue>>(self, value: T) -> Self {
+            pub fn #where_not_method<T: Into<rullst_orm::RullstValue>>(self, value: T) -> Self {
                 self.where_not_eq(#field_name_str, value)
             }
         });
@@ -65,7 +65,7 @@ pub fn generate(
     let has_soft_deletes = parsed.has_soft_deletes;
     let hook_after_fetch = if !parsed.after_fetch.is_empty() {
         let method = syn::Ident::new(&parsed.after_fetch, name.span());
-        quote! { 
+        quote! {
             let futures = results.iter_mut().map(|model| model.#method());
             rullst_orm::futures::future::try_join_all(futures).await?;
         }
@@ -88,7 +88,7 @@ pub fn generate(
             pub joins: Vec<String>,
             pub wheres: Vec<(String, String)>,
             pub havings: Vec<(String, String)>,
-            pub bindings: Vec<rullst_orm::EloquentValue>,
+            pub bindings: Vec<rullst_orm::RullstValue>,
             pub with_trashed: bool,
             pub only_trashed: bool,
             #[cfg(feature = "redis")]
@@ -100,7 +100,7 @@ pub fn generate(
             fn to_sql(&self) -> String {
                 self.to_sql()
             }
-            fn bindings(&self) -> &Vec<rullst_orm::EloquentValue> {
+            fn bindings(&self) -> &Vec<rullst_orm::RullstValue> {
                 &self.bindings
             }
         }
@@ -134,7 +134,7 @@ pub fn generate(
                 self
             }
 
-            /// Executes a raw WHERE clause. 
+            /// Executes a raw WHERE clause.
             /// WARNING: Do not pass user input directly into `query` as it can cause SQL Injection.
             /// Always use parameterized bindings when dealing with user data.
             pub fn where_raw(mut self, query: &str) -> Self {
@@ -165,7 +165,7 @@ pub fn generate(
                 self
             }
 
-            /// Executes a raw SELECT clause. 
+            /// Executes a raw SELECT clause.
             /// WARNING: Make sure to avoid user input concatenation in the select string.
             pub fn select_raw(mut self, query: &str) -> Self {
                 self.selects = Some(query.to_string());
@@ -214,37 +214,37 @@ pub fn generate(
                 self
             }
 
-            pub fn where_eq<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn where_eq<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} = ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn where_not_eq<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn where_not_eq<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} != ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn where_gt<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn where_gt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} > ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn where_lt<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn where_lt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} < ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn where_like<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn where_like<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} LIKE ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn where_not_like<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn where_not_like<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} NOT LIKE ?", column)));
                 self.bindings.push(value.into());
                 self
@@ -266,7 +266,7 @@ pub fn generate(
                 self
             }
 
-            pub fn where_col<T: Into<rullst_orm::EloquentValue>>(mut self, col: #column_enum_name, value: T) -> Self {
+            pub fn where_col<T: Into<rullst_orm::RullstValue>>(mut self, col: #column_enum_name, value: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} = ?", col.as_str())));
                 self.bindings.push(value.into());
                 self
@@ -288,7 +288,7 @@ pub fn generate(
             }
 
             /// WARNING: Ensure `column` does not contain user input to prevent SQL Injection.
-            pub fn where_in<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+            pub fn where_in<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, values: Vec<T>) -> Self {
                 if values.is_empty() { return self; }
                 let placeholders = vec!["?"; values.len()].join(", ");
                 self.wheres.push(("AND".to_string(), format!("{} IN ({})", column, placeholders)));
@@ -296,7 +296,7 @@ pub fn generate(
                 self
             }
 
-            pub fn where_not_in<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+            pub fn where_not_in<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, values: Vec<T>) -> Self {
                 if values.is_empty() { return self; }
                 let placeholders = vec!["?"; values.len()].join(", ");
                 self.wheres.push(("AND".to_string(), format!("{} NOT IN ({})", column, placeholders)));
@@ -304,14 +304,14 @@ pub fn generate(
                 self
             }
 
-            pub fn where_between<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, min: T, max: T) -> Self {
+            pub fn where_between<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, min: T, max: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} BETWEEN ? AND ?", column)));
                 self.bindings.push(min.into());
                 self.bindings.push(max.into());
                 self
             }
 
-            pub fn where_not_between<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, min: T, max: T) -> Self {
+            pub fn where_not_between<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, min: T, max: T) -> Self {
                 self.wheres.push(("AND".to_string(), format!("{} NOT BETWEEN ? AND ?", column)));
                 self.bindings.push(min.into());
                 self.bindings.push(max.into());
@@ -323,31 +323,31 @@ pub fn generate(
                 self
             }
 
-            pub fn or_where<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn or_where<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("OR".to_string(), format!("{} = ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn or_where_not_eq<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn or_where_not_eq<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("OR".to_string(), format!("{} != ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn or_where_gt<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn or_where_gt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("OR".to_string(), format!("{} > ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn or_where_lt<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn or_where_lt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("OR".to_string(), format!("{} < ?", column)));
                 self.bindings.push(value.into());
                 self
             }
 
-            pub fn or_where_like<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, value: T) -> Self {
+            pub fn or_where_like<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
                 self.wheres.push(("OR".to_string(), format!("{} LIKE ?", column)));
                 self.bindings.push(value.into());
                 self
@@ -364,7 +364,7 @@ pub fn generate(
             }
 
             /// WARNING: Ensure `column` does not contain user input to prevent SQL Injection.
-            pub fn or_where_in<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+            pub fn or_where_in<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, values: Vec<T>) -> Self {
                 if values.is_empty() { return self; }
                 let placeholders = vec!["?"; values.len()].join(", ");
                 self.wheres.push(("OR".to_string(), format!("{} IN ({})", column, placeholders)));
@@ -372,7 +372,7 @@ pub fn generate(
                 self
             }
 
-            pub fn or_where_between<T: Into<rullst_orm::EloquentValue>>(mut self, column: &str, min: T, max: T) -> Self {
+            pub fn or_where_between<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, min: T, max: T) -> Self {
                 self.wheres.push(("OR".to_string(), format!("{} BETWEEN ? AND ?", column)));
                 self.bindings.push(min.into());
                 self.bindings.push(max.into());
@@ -411,12 +411,12 @@ pub fn generate(
                     None => "*",
                 };
                 let distinct = if self.is_distinct { "DISTINCT " } else { "" };
-                
+
                 // Estimate capacity: SELECT + FROM + table + joins + wheres
-                let estimated_capacity = 50 + #table_name.len() + self.joins.iter().map(|j| j.len() + 1).sum::<usize>() 
+                let estimated_capacity = 50 + #table_name.len() + self.joins.iter().map(|j| j.len() + 1).sum::<usize>()
                     + self.wheres.iter().map(|(o, c)| o.len() + c.len() + 4).sum::<usize>();
                 let mut sql = String::with_capacity(estimated_capacity);
-                
+
                 sql.push_str("SELECT ");
                 if self.is_distinct {
                     sql.push_str("DISTINCT ");
@@ -508,12 +508,12 @@ pub fn generate(
                 self.get_with_tx_internal(pool).await
             }
 
-            pub async fn get_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<Vec<#name>, rullst_orm::sqlx::Error> {
+            pub async fn get_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Vec<#name>, rullst_orm::sqlx::Error> {
                 self.get_with_tx_internal(&mut **tx).await
             }
 
-            async fn get_with_tx_internal<'e, E>(&self, executor: E) -> Result<Vec<#name>, rullst_orm::sqlx::Error> 
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::EloquentDatabase>
+            async fn get_with_tx_internal<'e, E>(&self, executor: E) -> Result<Vec<#name>, rullst_orm::sqlx::Error>
+            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 let query_str = self.to_sql();
 
@@ -542,15 +542,15 @@ pub fn generate(
                     let mut query = rullst_orm::sqlx::query_as::<_, #name>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &self.bindings {
                         match binding {
-                            rullst_orm::EloquentValue::String(s) => { query = query.bind(s.clone()); }
-                            rullst_orm::EloquentValue::Int(i) => { query = query.bind(*i); }
-                            rullst_orm::EloquentValue::Float(f) => { query = query.bind(*f); }
-                            rullst_orm::EloquentValue::Bool(b) => { query = query.bind(*b); }
+                            rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
+                            rullst_orm::RullstValue::Int(i) => { query = query.bind(*i); }
+                            rullst_orm::RullstValue::Float(f) => { query = query.bind(*f); }
+                            rullst_orm::RullstValue::Bool(b) => { query = query.bind(*b); }
                         }
                     }
                     query.fetch_all(executor).await?
                 };
-                
+
                 #[cfg(feature = "redis")]
                 {
                     if let Some(ttl) = self.remember_ttl {
@@ -574,7 +574,7 @@ pub fn generate(
                 Ok(results.into_iter().next())
             }
 
-            pub async fn first_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<Option<#name>, rullst_orm::sqlx::Error> {
+            pub async fn first_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Option<#name>, rullst_orm::sqlx::Error> {
                 let mut builder = self.clone();
                 builder.limit = Some(1);
                 let results = builder.get_with_tx(tx).await?;
@@ -597,7 +597,7 @@ pub fn generate(
                     only_trashed: self.only_trashed,
                     ..self.clone()
                 };
-                
+
                 let query_str = total_builder.to_sql();
                 if rullst_orm::schema::is_query_log_enabled() {
                     println!("[SQL Debug] {:?} | Bindings: {:?}", query_str, total_builder.bindings);
@@ -607,24 +607,24 @@ pub fn generate(
                     let mut query = rullst_orm::sqlx::query_as::<_, (i64,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &total_builder.bindings {
                         match binding {
-                            rullst_orm::EloquentValue::String(s) => { query = query.bind(s.clone()); }
-                            rullst_orm::EloquentValue::Int(i) => { query = query.bind(*i); }
-                            rullst_orm::EloquentValue::Float(f) => { query = query.bind(*f); }
-                            rullst_orm::EloquentValue::Bool(b) => { query = query.bind(*b); }
+                            rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
+                            rullst_orm::RullstValue::Int(i) => { query = query.bind(*i); }
+                            rullst_orm::RullstValue::Float(f) => { query = query.bind(*f); }
+                            rullst_orm::RullstValue::Bool(b) => { query = query.bind(*b); }
                         }
                     }
                     query.fetch_one(pool).await?
                 };
                 let total = total_row.0;
                 let last_page = (total as f64 / per_page as f64).ceil() as usize;
-                
+
                 let mut data_builder = self.clone();
                 data_builder.limit = Some(per_page);
                 if page > 1 {
                     data_builder.offset = Some((page - 1) * per_page);
                 }
                 let data = data_builder.get().await?;
-                
+
                 Ok(rullst_orm::PaginationResult {
                     data,
                     total,
@@ -645,15 +645,15 @@ pub fn generate(
                 if rullst_orm::schema::is_query_log_enabled() {
                     println!("[SQL Debug] {:?} | Bindings: {:?}", query_str, builder.bindings);
                 }
-                
+
                 let row: (i64,) = {
                     let mut query = rullst_orm::sqlx::query_as::<_, (i64,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &builder.bindings {
                         match binding {
-                            rullst_orm::EloquentValue::String(s) => { query = query.bind(s.clone()); }
-                            rullst_orm::EloquentValue::Int(i) => { query = query.bind(*i); }
-                            rullst_orm::EloquentValue::Float(f) => { query = query.bind(*f); }
-                            rullst_orm::EloquentValue::Bool(b) => { query = query.bind(*b); }
+                            rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
+                            rullst_orm::RullstValue::Int(i) => { query = query.bind(*i); }
+                            rullst_orm::RullstValue::Float(f) => { query = query.bind(*f); }
+                            rullst_orm::RullstValue::Bool(b) => { query = query.bind(*b); }
                         }
                     }
                     query.fetch_one(pool).await?
@@ -681,7 +681,7 @@ pub fn generate(
                 Ok(())
             }
 
-            pub async fn chunk_with_tx<F, Fut>(&self, size: usize, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>, mut handler: F) -> Result<(), rullst_orm::sqlx::Error>
+            pub async fn chunk_with_tx<F, Fut>(&self, size: usize, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>, mut handler: F) -> Result<(), rullst_orm::sqlx::Error>
             where
                 F: FnMut(Vec<#name>) -> Fut + Send,
                 Fut: std::future::Future<Output = ()> + Send,
@@ -706,15 +706,15 @@ pub fn generate(
                 self.delete_all_with_tx_internal(pool).await
             }
 
-            pub async fn delete_all_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<u64, rullst_orm::sqlx::Error> {
+            pub async fn delete_all_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<u64, rullst_orm::sqlx::Error> {
                 self.delete_all_with_tx_internal(&mut **tx).await
             }
 
-            async fn delete_all_with_tx_internal<'e, E>(&self, executor: E) -> Result<u64, rullst_orm::sqlx::Error> 
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::EloquentDatabase>
+            async fn delete_all_with_tx_internal<'e, E>(&self, executor: E) -> Result<u64, rullst_orm::sqlx::Error>
+            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 #delete_all_logic
-                
+
                 if !self.wheres.is_empty() {
                     query_str.push_str(" WHERE ");
                     let mut first = true;
@@ -732,10 +732,10 @@ pub fn generate(
                     let mut query = rullst_orm::sqlx::query(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &self.bindings {
                         match binding {
-                            rullst_orm::EloquentValue::String(s) => { query = query.bind(s.clone()); }
-                            rullst_orm::EloquentValue::Int(i) => { query = query.bind(*i); }
-                            rullst_orm::EloquentValue::Float(f) => { query = query.bind(*f); }
-                            rullst_orm::EloquentValue::Bool(b) => { query = query.bind(*b); }
+                            rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
+                            rullst_orm::RullstValue::Int(i) => { query = query.bind(*i); }
+                            rullst_orm::RullstValue::Float(f) => { query = query.bind(*f); }
+                            rullst_orm::RullstValue::Bool(b) => { query = query.bind(*b); }
                         }
                     }
                     query.execute(executor).await?
@@ -752,10 +752,10 @@ pub fn generate(
                     let mut query = rullst_orm::sqlx::query_as::<_, (String,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &builder.bindings {
                         match binding {
-                            rullst_orm::EloquentValue::String(s) => { query = query.bind(s.clone()); }
-                            rullst_orm::EloquentValue::Int(i) => { query = query.bind(*i); }
-                            rullst_orm::EloquentValue::Float(f) => { query = query.bind(*f); }
-                            rullst_orm::EloquentValue::Bool(b) => { query = query.bind(*b); }
+                            rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
+                            rullst_orm::RullstValue::Int(i) => { query = query.bind(*i); }
+                            rullst_orm::RullstValue::Float(f) => { query = query.bind(*f); }
+                            rullst_orm::RullstValue::Bool(b) => { query = query.bind(*b); }
                         }
                     }
                     query.fetch_all(pool).await?
@@ -772,10 +772,10 @@ pub fn generate(
                     let mut query = rullst_orm::sqlx::query_as::<_, (i32,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &builder.bindings {
                         match binding {
-                            rullst_orm::EloquentValue::String(s) => { query = query.bind(s.clone()); }
-                            rullst_orm::EloquentValue::Int(i) => { query = query.bind(*i); }
-                            rullst_orm::EloquentValue::Float(f) => { query = query.bind(*f); }
-                            rullst_orm::EloquentValue::Bool(b) => { query = query.bind(*b); }
+                            rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
+                            rullst_orm::RullstValue::Int(i) => { query = query.bind(*i); }
+                            rullst_orm::RullstValue::Float(f) => { query = query.bind(*f); }
+                            rullst_orm::RullstValue::Bool(b) => { query = query.bind(*b); }
                         }
                     }
                     query.fetch_all(pool).await?

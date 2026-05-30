@@ -67,7 +67,7 @@ Refactor the internal `wheres`, `joins`, and `selects` collections to use `std::
 ### 2. 🛡️ Strict SQL Typing (Via Feature Flags)
 
 **Current State (v1.x):**
-The library uses `sqlx::AnyPool` and a custom generic enum (`EloquentValue`) to map types dynamically at runtime. This allows the ORM to connect to PostgreSQL, MySQL, and SQLite seamlessly without changing the Rust codebase. However, it sacrifices Rust's powerful compile-time SQL verification.
+The library uses `sqlx::AnyPool` and a custom generic enum (`RullstValue`) to map types dynamically at runtime. This allows the ORM to connect to PostgreSQL, MySQL, and SQLite seamlessly without changing the Rust codebase. However, it sacrifices Rust's powerful compile-time SQL verification.
 
 **Proposed Change (v2.0):**
 Introduce an optional "Strict Mode" via Cargo **Feature Flags** (e.g., `features = ["strict-postgres"]`).
@@ -88,11 +88,11 @@ Implement custom `Drop` traits or an explicit arena allocator for complex query 
 ### 4. 🧬 Query Builder Generics & Type-Safe Bindings
 
 **Current State (v1.x):**
-The library relies on a dynamic enum (`EloquentValue`) to represent and bind variables into SQL statements (e.g. `String`, `Int`, `Float`). This creates an unnecessary indirection layer and a small memory overhead allocating variables into the enum wrapper before binding them.
+The library relies on a dynamic enum (`RullstValue`) to represent and bind variables into SQL statements (e.g. `String`, `Int`, `Float`). This creates an unnecessary indirection layer and a small memory overhead allocating variables into the enum wrapper before binding them.
 
 **Proposed Change (v2.0):**
 Refactor the query builder API (e.g., `.where_eq()`, `.or_where()`) to accept generic types bound by SQLx's native `sqlx::Encode` and `sqlx::Type` traits.
-- This will completely remove the need for `EloquentValue` in strict mode environments.
+- This will completely remove the need for `RullstValue` in strict mode environments.
 - Bindings will be statically pushed down to the underlying database driver natively, making execution slightly faster and memory-safe.
 
 ## 🌍 Phase 6: The Ultimate Ecosystem (SaaS & Open Source Mastery)

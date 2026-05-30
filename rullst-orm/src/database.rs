@@ -1,20 +1,32 @@
-#[cfg(not(any(feature = "strict-postgres", feature = "strict-mysql", feature = "strict-sqlite")))]
-pub type EloquentDatabase = sqlx::Any;
+#[cfg(not(any(
+    feature = "strict-postgres",
+    feature = "strict-mysql",
+    feature = "strict-sqlite"
+)))]
+pub type RullstDatabase = sqlx::Any;
 
 #[cfg(feature = "strict-postgres")]
-pub type EloquentDatabase = sqlx::Postgres;
+pub type RullstDatabase = sqlx::Postgres;
 
 #[cfg(all(feature = "strict-mysql", not(feature = "strict-postgres")))]
-pub type EloquentDatabase = sqlx::MySql;
+pub type RullstDatabase = sqlx::MySql;
 
-#[cfg(all(feature = "strict-sqlite", not(feature = "strict-postgres"), not(feature = "strict-mysql")))]
-pub type EloquentDatabase = sqlx::Sqlite;
+#[cfg(all(
+    feature = "strict-sqlite",
+    not(feature = "strict-postgres"),
+    not(feature = "strict-mysql")
+))]
+pub type RullstDatabase = sqlx::Sqlite;
 
 pub trait QueryResultExt {
     fn get_last_insert_id(&self) -> i64;
 }
 
-#[cfg(not(any(feature = "strict-postgres", feature = "strict-mysql", feature = "strict-sqlite")))]
+#[cfg(not(any(
+    feature = "strict-postgres",
+    feature = "strict-mysql",
+    feature = "strict-sqlite"
+)))]
 impl QueryResultExt for sqlx::any::AnyQueryResult {
     fn get_last_insert_id(&self) -> i64 {
         self.last_insert_id().unwrap_or(0)
@@ -35,7 +47,11 @@ impl QueryResultExt for sqlx::mysql::MySqlQueryResult {
     }
 }
 
-#[cfg(all(feature = "strict-sqlite", not(feature = "strict-postgres"), not(feature = "strict-mysql")))]
+#[cfg(all(
+    feature = "strict-sqlite",
+    not(feature = "strict-postgres"),
+    not(feature = "strict-mysql")
+))]
 impl QueryResultExt for sqlx::sqlite::SqliteQueryResult {
     fn get_last_insert_id(&self) -> i64 {
         self.last_insert_rowid()

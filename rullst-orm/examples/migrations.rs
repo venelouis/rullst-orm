@@ -1,5 +1,5 @@
 use rullst_orm::Orm;
-use rullst_orm::schema::{Schema, Blueprint};
+use rullst_orm::schema::{Blueprint, Schema};
 
 #[tokio::main]
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
@@ -19,8 +19,9 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
         table.boolean("is_active").default("1");
         table.timestamps(); // created_at, updated_at
         table.soft_deletes(); // deleted_at
-    }).await?;
-    
+    })
+    .await?;
+
     println!("Users table created successfully!");
 
     // 3. Run Migrations (Create posts table)
@@ -30,16 +31,17 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
         table.string("title").not_null();
         table.string("body").nullable();
         table.timestamps();
-    }).await?;
+    })
+    .await?;
 
     println!("Posts table created successfully!");
 
     // 4. Verification
     let pool = Orm::pool();
-    
+
     // Let's manually inspect the SQLite sqlite_schema table
     let tables: Vec<(String, String)> = rullst_orm::sqlx::query_as(
-        "SELECT name, sql FROM sqlite_schema WHERE type='table' AND name IN ('users', 'posts')"
+        "SELECT name, sql FROM sqlite_schema WHERE type='table' AND name IN ('users', 'posts')",
     )
     .fetch_all(pool)
     .await?;

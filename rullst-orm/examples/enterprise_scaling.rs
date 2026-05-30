@@ -22,13 +22,14 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 2. Initialize Orm with 1 Primary and 2 Replicas
     Orm::init_with_replicas(
         "sqlite://primary.db",
-        vec!["sqlite://replica1.db", "sqlite://replica2.db"]
-    ).await?;
+        vec!["sqlite://replica1.db", "sqlite://replica2.db"],
+    )
+    .await?;
 
     // Create the users table on primary and both replicas (in a real-world scenario, replication is handled by the database engine)
     let primary_pool = Orm::pool();
-    let r1_pool = rullst_orm::EloquentPool::connect("sqlite://replica1.db").await?;
-    let r2_pool = rullst_orm::EloquentPool::connect("sqlite://replica2.db").await?;
+    let r1_pool = rullst_orm::RullstPool::connect("sqlite://replica1.db").await?;
+    let r2_pool = rullst_orm::RullstPool::connect("sqlite://replica2.db").await?;
 
     for pool in &[primary_pool, &r1_pool, &r2_pool] {
         rullst_orm::sqlx::query(
@@ -39,7 +40,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     }
 
     println!("✅ Read/Write Connection Split initialized successfully!");
-    
+
     // 3. Write data strictly routes to the primary pool
     println!("\n📥 Inserting users (routes to primary database pool)...");
     for i in 1..=10 {
@@ -70,14 +71,16 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Orm::enable_query_log();
 
     // 4. Read operations route to replica pools round-robin
-    println!("\n🔍 Running multiple read operations (load-balanced round-robin across replicas)...");
+    println!(
+        "\n🔍 Running multiple read operations (load-balanced round-robin across replicas)..."
+    );
     let count1 = User::query().count().await?;
     let count2 = User::query().count().await?;
     println!("=> Count query 1: {}, Count query 2: {}", count1, count2);
 
     // 5. Query Chunking: low memory batch processing
     println!("\n📦 Testing Query Chunking (processing users in batches of 3)...");
-    
+
     User::query()
         .chunk(3, |chunk| async move {
             println!("--- Processing a chunk of {} users ---", chunk.len());

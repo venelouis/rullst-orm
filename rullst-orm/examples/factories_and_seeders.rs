@@ -1,6 +1,6 @@
-use rullst_orm::{Orm, sqlx::FromRow, Seeder, async_trait};
-use rullst_orm::schema::{Schema, Blueprint};
 use rand::RngExt;
+use rullst_orm::schema::{Blueprint, Schema};
+use rullst_orm::{Orm, Seeder, async_trait, sqlx::FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]
@@ -49,7 +49,8 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
         table.id();
         table.string("name").not_null();
         table.string("email").not_null();
-    }).await?;
+    })
+    .await?;
 
     // Execute seeders globally!
     println!("--- Starting Database Seed ---");

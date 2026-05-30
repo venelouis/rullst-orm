@@ -14,7 +14,7 @@ This document is the **Single Source of Truth (SST)** for the **rullst-orm ORM**
 All Active Record entities are defined as Rust structs deriving `rullst_orm::Orm` and mapping to sqlx rows:
 
 ```rust
-use rullst_orm::{Orm, EloquentModel, sqlx::{self, FromRow}};
+use rullst_orm::{Orm, RullstModel, sqlx::{self, FromRow}};
 
 #[derive(Debug, Clone, FromRow, Orm)]
 #[orm(

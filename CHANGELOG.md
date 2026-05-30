@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Release Automation:** Integrated GitHub Actions CI/CD for automated Crates.io publishing triggered by `v*` Git tags.
 - **Security Audits in CI:** Added `cargo audit` to the `ci.yml` pipeline to automatically block PRs with vulnerable dependencies.
-- **Unit Tests:** Added full test coverage for `enable_query_log`, `validate_table_name`, `JoinClause`, `EloquentValue`, and string manipulation edge cases.
+- **Unit Tests:** Added full test coverage for `enable_query_log`, `validate_table_name`, `JoinClause`, `RullstValue`, and string manipulation edge cases.
 - **Strict SQL Typing Architecture:** Complete integration of Cargo feature flags (`strict-postgres`, `strict-mysql`, `strict-sqlite`) to optionally enforce `sqlx` compile-time type verification instead of using `AnyPool`.
 - Custom `QueryResultExt` wrapper added to dynamically handle `last_insert_id()` logic across strict drivers.
 - **v2.0 Roadmap:** Updated `docs/v2_roadmap.md` with the strategy to use feature flags for Strict Typing and iterative implementation for the Zero-Copy Builder.
