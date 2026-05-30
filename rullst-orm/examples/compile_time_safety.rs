@@ -1,10 +1,10 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 use rullst_orm::schema::{Schema, Blueprint};
 
-// When we derive Eloquent, it will generate a `UserColumn` enum automatically
+// When we derive Orm, it will generate a `UserColumn` enum automatically
 // because our struct is named `User`!
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub full_name: String,
@@ -16,7 +16,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 1. Initialize DB & Schema
     let _ = std::fs::remove_file("compile_time_safety.db");
     std::fs::File::create("compile_time_safety.db").unwrap();
-    Eloquent::init("sqlite://compile_time_safety.db").await?;
+    Orm::init("sqlite://compile_time_safety.db").await?;
 
     Schema::create("users", |table: &mut Blueprint| {
         table.id();

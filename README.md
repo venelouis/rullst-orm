@@ -1,4 +1,4 @@
-# Rust Eloquent 🌟
+# Rullst ORM 🌟
 
 ![Crates.io](https://img.shields.io/crates/v/rullst-orm?style=flat-square&color=orange)
 ![Downloads](https://img.shields.io/crates/d/rullst-orm?style=flat-square&color=blue)
@@ -8,15 +8,15 @@
 ![CI](https://github.com/venelouis/rullst-orm/actions/workflows/ci.yml/badge.svg)
 ![Static Audit](https://img.shields.io/badge/Static%20Audit-10%2F10-brightgreen?style=flat-square)
 
-An Active Record ORM for Rust, inspired by Laravel's Eloquent.
+An Active Record ORM for Rust, inspired by Laravel's Orm.
 
 Built on top of `sqlx` and procedural macros, **rullst-orm** aims to bring the delightful and simplistic syntax of Laravel directly to the high-performance Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** universally out of the box using dynamic driver loading!
 
-## 🚀 Why Rust Eloquent?
+## 🚀 Why Rullst ORM?
 
-In traditional Rust database handling, you have to write raw SQL queries, manage connection pools manually across every function, and bind variables repetitively. Rust Eloquent solves this by abstracting the heavy lifting behind a single `#[derive(Eloquent)]` macro. 
+In traditional Rust database handling, you have to write raw SQL queries, manage connection pools manually across every function, and bind variables repetitively. Rullst ORM solves this by abstracting the heavy lifting behind a single `#[derive(Orm)]` macro. 
 
-**Rust Eloquent v1.1.x** brings a massive array of enterprise-grade features:
+**Rullst ORM v1.1.x** brings a massive array of enterprise-grade features:
 - **Read/Write Connection Splitting** for automatic scaling.
 - **Integrated Redis Caching** to speed up repeating queries natively.
 - **Query Chunking** for memory-safe large dataset processing.
@@ -74,23 +74,23 @@ rullst-orm = { version = "2.0", features = ["strict"] }
 ## 📖 Quick Start
 
 ```rust
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-// 1. Just add the Eloquent macro to your struct!
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")] // Optional: specifies a custom table name
+// 1. Just add the Orm macro to your struct!
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")] // Optional: specifies a custom table name
 pub struct User {
     pub id: i32, // ID = 0 means it hasn't been saved yet
     pub name: String,
     pub email: String,
-    #[eloquent(hidden)] // This field won't be exposed when calling user.to_json()
+    #[orm(hidden)] // This field won't be exposed when calling user.to_json()
     pub password: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 2. Initialize the global connection pool
-    Eloquent::init("sqlite::memory:").await?;
+    Orm::init("sqlite::memory:").await?;
 
     // 3. Create a new user magically
     let mut user = User {
@@ -121,7 +121,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
 ## ✨ Available Query Builder Methods
 
-The `#[derive(Eloquent)]` macro injects an entire Query Builder into your model, allowing you to chain methods endlessly.
+The `#[derive(Orm)]` macro injects an entire Query Builder into your model, allowing you to chain methods endlessly.
 
 ### 🔍 Active Record Methods
 These methods are called directly on your model instance or struct:
@@ -168,7 +168,7 @@ End your Query Builder chain with one of these to execute the SQL query asynchro
 
 ## 🚀 Advanced Subqueries & Joins
 
-Rust Eloquent provides powerful primitives for complex SQL joins and subqueries, maintaining `sqlx` binding safety!
+Rullst ORM provides powerful primitives for complex SQL joins and subqueries, maintaining `sqlx` binding safety!
 
 ### Constrained Joins
 You can join tables and apply multiple exact matches inside the join clause:
@@ -221,17 +221,17 @@ User::observe(Arc::new(UserObserverImpl));
 
 ## 🏢 Enterprise Scaling (v1.1.x)
 
-For high-traffic applications, Rust Eloquent provides built-in enterprise features to scale your data layer.
+For high-traffic applications, Rullst ORM provides built-in enterprise features to scale your data layer.
 
 ### Read/Write Connection Splitting
 Automatically route `SELECT` queries to read replicas while keeping `INSERT`/`UPDATE`/`DELETE` operations on your primary node!
 
 ```rust
 // Initialize primary node
-Eloquent::init("postgres://primary_db_url").await?;
+Orm::init("postgres://primary_db_url").await?;
 
 // Initialize array of read replicas
-Eloquent::init_replicas(&[
+Orm::init_replicas(&[
     "postgres://replica_1_url",
     "postgres://replica_2_url"
 ]).await?;
@@ -250,7 +250,7 @@ Instantly cache heavy database queries by enabling the `redis` feature flag and 
 
 ```rust
 // Initialize Redis
-Eloquent::init_redis("redis://127.0.0.1/").await?;
+Orm::init_redis("redis://127.0.0.1/").await?;
 
 // The first call hits the database. Subsequent calls hit Redis until the 3600 seconds expire!
 let active_users = User::query()
@@ -276,7 +276,7 @@ User::query()
 ```
 
 ### Background Event Broadcasting
-When you enable the `redis` feature, Rust Eloquent automatically broadcasts Pub/Sub events for model lifecycles. If you update a user, an event is emitted to Redis: `eloquent:User:updated`, carrying the updated JSON data. This is perfect for syncing external search engines or triggering background workers!
+When you enable the `redis` feature, Rullst ORM automatically broadcasts Pub/Sub events for model lifecycles. If you update a user, an event is emitted to Redis: `orm:User:updated`, carrying the updated JSON data. This is perfect for syncing external search engines or triggering background workers!
 
 ---
 
@@ -301,9 +301,9 @@ rullst_orm::schema::run_artisan(std::env::args().collect(), vec![ /* Seeders her
 Ever wondered what SQL queries are running under the hood? Toggle STDOUT query logging dynamically at any point!
 
 ```rust
-Eloquent::enable_query_log();
+Orm::enable_query_log();
 // All queries, limits, offsets, and parameter bindings will print to STDOUT
-Eloquent::disable_query_log();
+Orm::disable_query_log();
 ```
 
 ---

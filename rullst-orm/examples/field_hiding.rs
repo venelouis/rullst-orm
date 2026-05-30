@@ -1,12 +1,12 @@
 use rullst_orm::sqlx::FromRow;
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
-    #[eloquent(hidden)]
+    #[orm(hidden)]
     pub password: String,
 }
 

@@ -1,7 +1,7 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -19,14 +19,14 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     std::fs::File::create("replica1.db").unwrap();
     std::fs::File::create("replica2.db").unwrap();
 
-    // 2. Initialize Eloquent with 1 Primary and 2 Replicas
-    Eloquent::init_with_replicas(
+    // 2. Initialize Orm with 1 Primary and 2 Replicas
+    Orm::init_with_replicas(
         "sqlite://primary.db",
         vec!["sqlite://replica1.db", "sqlite://replica2.db"]
     ).await?;
 
     // Create the users table on primary and both replicas (in a real-world scenario, replication is handled by the database engine)
-    let primary_pool = Eloquent::pool();
+    let primary_pool = Orm::pool();
     let r1_pool = rullst_orm::EloquentPool::connect("sqlite://replica1.db").await?;
     let r2_pool = rullst_orm::EloquentPool::connect("sqlite://replica2.db").await?;
 
@@ -67,7 +67,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     }
 
     // Enable query logging to visualize connection/query details
-    Eloquent::enable_query_log();
+    Orm::enable_query_log();
 
     // 4. Read operations route to replica pools round-robin
     println!("\n🔍 Running multiple read operations (load-balanced round-robin across replicas)...");

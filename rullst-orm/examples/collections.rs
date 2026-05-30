@@ -1,8 +1,8 @@
-use rullst_orm::{Eloquent, sqlx::FromRow, EloquentCollection};
+use rullst_orm::{Orm, sqlx::FromRow, EloquentCollection};
 use rullst_orm::schema::{Schema, Blueprint};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "products")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "products")]
 pub struct Product {
     pub id: i32,
     pub name: String,
@@ -15,7 +15,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 1. Initialize DB & Schema
     let _ = std::fs::remove_file("collections_test.db");
     std::fs::File::create("collections_test.db").unwrap();
-    Eloquent::init("sqlite://collections_test.db").await?;
+    Orm::init("sqlite://collections_test.db").await?;
 
     Schema::create("products", |table: &mut Blueprint| {
         table.id();
@@ -34,10 +34,10 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let mut p4 = Product { id: 0, name: "Chair".to_string(), price: 150.00, category: "Furniture".to_string() };
     p4.save().await?;
 
-    // 3. Fetch all records using Eloquent (Returns a standard Vec<Product>)
+    // 3. Fetch all records using Orm (Returns a standard Vec<Product>)
     let collection = Product::all().await?;
 
-    println!("--- Testing Eloquent Collections ---\n");
+    println!("--- Testing Orm Collections ---\n");
 
     // 1. implode()
     let names = collection.implode(", ", |p| p.name.clone());

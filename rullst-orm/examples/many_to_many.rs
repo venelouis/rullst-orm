@@ -1,21 +1,21 @@
-use rullst_orm::{Eloquent, sqlx::FromRow, EloquentModel};
+use rullst_orm::{Orm, sqlx::FromRow, EloquentModel};
 use rullst_orm::schema::Schema;
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "roles")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "roles")]
 pub struct Role {
     pub id: i32,
     pub name: String,
 }
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
     
     // The many-to-many relationship!
-    #[eloquent(belongs_to_many = "Role", pivot_table = "role_user")]
+    #[orm(belongs_to_many = "Role", pivot_table = "role_user")]
     #[sqlx(skip)]
     pub roles: Option<Vec<Role>>,
 }
@@ -24,7 +24,7 @@ pub struct User {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("manytomany.db");
     std::fs::File::create("manytomany.db").unwrap();
-    Eloquent::init("sqlite://manytomany.db").await?;
+    Orm::init("sqlite://manytomany.db").await?;
 
     Schema::create("users", |table| {
         table.id();
@@ -61,15 +61,15 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // Attach roles to users in the pivot table!
     rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
         .bind(user1.id).bind(admin_role.id)
-        .execute(Eloquent::pool()).await?;
+        .execute(Orm::pool()).await?;
         
     rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
         .bind(user1.id).bind(editor_role.id)
-        .execute(Eloquent::pool()).await?;
+        .execute(Orm::pool()).await?;
 
     rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
         .bind(user2.id).bind(viewer_role.id)
-        .execute(Eloquent::pool()).await?;
+        .execute(Orm::pool()).await?;
 
     // Eager Load test
     println!("Fetching users with their roles...");

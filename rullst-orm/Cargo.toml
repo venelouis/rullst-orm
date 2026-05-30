@@ -2,10 +2,10 @@
 name = "rullst-orm"
 version = "1.1.13"
 edition = "2024"
-description = "An Active Record ORM for Rust, inspired by Laravel's Eloquent."
+description = "An Active Record ORM for Rust, inspired by Laravel's Orm."
 license = "MIT"
 repository = "https://github.com/venelouis/rullst-orm"
-keywords = ["orm", "database", "sqlx", "eloquent", "active-record"]
+keywords = ["orm", "database", "sqlx", "orm", "active-record"]
 categories = ["database"]
 readme = "../README.md"
 

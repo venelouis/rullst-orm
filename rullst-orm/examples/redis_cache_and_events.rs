@@ -1,8 +1,8 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 #[cfg(feature = "redis")]
 use std::time::Duration;
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "products")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "products")]
 pub struct Product {
     pub id: i32,
     pub name: String,
@@ -15,8 +15,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = std::fs::remove_file("products_demo.db");
     std::fs::File::create("products_demo.db")?;
 
-    Eloquent::init("sqlite://products_demo.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://products_demo.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query(
         "CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price REAL NOT NULL)"
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     #[cfg(feature = "redis")]
     {
-        if let Err(e) = Eloquent::init_redis(redis_url).await {
+        if let Err(e) = Orm::init_redis(redis_url).await {
             println!("⚠️ Could not connect to Redis: {}. Skipping Redis caching and Pub/Sub event demo.", e);
             let _ = std::fs::remove_file("products_demo.db");
             return Ok(());
@@ -40,10 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // 3. Spawn a background thread to subscribe to all product events and print them
         tokio::spawn(async move {
-            let client = Eloquent::redis_client();
+            let client = Orm::redis_client();
             if let Ok(mut conn) = client.get_connection() {
                 let mut pubsub = conn.as_pubsub();
-                let _ = pubsub.psubscribe("eloquent:events:products:*");
+                let _ = pubsub.psubscribe("orm:events:products:*");
                 println!("📡 Background Subscriber: Listening for products Pub/Sub events on Redis...");
                 loop {
                     if let Ok(msg) = pubsub.get_message() {
@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         // Enable query logging to verify cache hits
-        Eloquent::enable_query_log();
+        Orm::enable_query_log();
 
         // 5. Caching: fetch with .remember(10) (10 seconds cache TTL)
         println!("\n🔍 Fetching product for the FIRST time (should hit SQL database and cache in Redis):");

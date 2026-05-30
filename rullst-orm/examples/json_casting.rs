@@ -1,4 +1,4 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 use rullst_orm::schema::Schema;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -7,14 +7,14 @@ pub struct UserPreferences {
     pub notifications_enabled: bool,
 }
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users_with_json")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users_with_json")]
 pub struct User {
     pub id: i32,
     pub name: String,
     
     // The magic JSON column!
-    #[eloquent(json)]
+    #[orm(json)]
     pub preferences: rullst_orm::Json<UserPreferences>,
 }
 
@@ -22,7 +22,7 @@ pub struct User {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("json_casting.db");
     std::fs::File::create("json_casting.db").unwrap();
-    Eloquent::init("sqlite://json_casting.db").await?;
+    Orm::init("sqlite://json_casting.db").await?;
 
     // In SQLite, JSON is just a TEXT column
     Schema::create("users_with_json", |table| {

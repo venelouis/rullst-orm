@@ -504,7 +504,7 @@ pub fn generate(
             }
 
             pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::read_pool();
+                let pool = rullst_orm::Orm::read_pool();
                 self.get_with_tx_internal(pool).await
             }
 
@@ -521,8 +521,8 @@ pub fn generate(
                 {
                     if let Some(ttl) = self.remember_ttl {
                         use rullst_orm::redis::AsyncCommands;
-                        let cache_key = format!("eloquent:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
-                        let mut conn = rullst_orm::Eloquent::redis_manager();
+                        let cache_key = format!("orm:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
+                        let mut conn = rullst_orm::Orm::redis_manager();
                         if let Ok(cached_data) = conn.get::<_, String>(&cache_key).await {
                             if !cached_data.is_empty() {
                                 if let Ok(mut results) = #name::from_cache_json_array(&cached_data) {
@@ -555,9 +555,9 @@ pub fn generate(
                 {
                     if let Some(ttl) = self.remember_ttl {
                         use rullst_orm::redis::AsyncCommands;
-                        let cache_key = format!("eloquent:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
+                        let cache_key = format!("orm:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
                         let serialized = #name::to_cache_json_array(&results);
-                        let mut conn = rullst_orm::Eloquent::redis_manager();
+                        let mut conn = rullst_orm::Orm::redis_manager();
                         let _: Result<(), rullst_orm::redis::RedisError> = conn.set_ex(&cache_key, serialized, ttl as u64).await;
                     }
                 }
@@ -602,7 +602,7 @@ pub fn generate(
                 if rullst_orm::schema::is_query_log_enabled() {
                     println!("[SQL Debug] {:?} | Bindings: {:?}", query_str, total_builder.bindings);
                 }
-                let pool = rullst_orm::Eloquent::read_pool();
+                let pool = rullst_orm::Orm::read_pool();
                 let total_row: (i64,) = {
                     let mut query = rullst_orm::sqlx::query_as::<_, (i64,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &total_builder.bindings {
@@ -635,7 +635,7 @@ pub fn generate(
             }
 
             pub async fn count(&self) -> Result<i64, rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::read_pool();
+                let pool = rullst_orm::Orm::read_pool();
                 let mut builder = self.clone();
                 builder.selects = Some("COUNT(*)".to_string());
                 builder.limit = None;
@@ -702,7 +702,7 @@ pub fn generate(
             }
 
             pub async fn delete_all(&self) -> Result<u64, rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::pool();
+                let pool = rullst_orm::Orm::pool();
                 self.delete_all_with_tx_internal(pool).await
             }
 
@@ -744,7 +744,7 @@ pub fn generate(
             }
 
             pub async fn pluck_string(&self, column: &str) -> Result<Vec<String>, rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::read_pool();
+                let pool = rullst_orm::Orm::read_pool();
                 let mut builder = self.clone();
                 builder.selects = Some(column.to_string());
                 let query_str = builder.to_sql();
@@ -764,7 +764,7 @@ pub fn generate(
             }
 
             pub async fn pluck_i32(&self, column: &str) -> Result<Vec<i32>, rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::read_pool();
+                let pool = rullst_orm::Orm::read_pool();
                 let mut builder = self.clone();
                 builder.selects = Some(column.to_string());
                 let query_str = builder.to_sql();

@@ -59,7 +59,7 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let mut after_fetch = String::new();
 
     for attr in &input.attrs {
-        if attr.path().is_ident("eloquent") {
+        if attr.path().is_ident("orm") {
             let token_str = match attr.meta.require_list() {
                 Ok(list) => list.tokens.to_string(),
                 Err(_) => continue, // Skip malformed attributes
@@ -87,9 +87,9 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let fields = match &input.data {
         Data::Struct(data_struct) => match &data_struct.fields {
             Fields::Named(fields_named) => &fields_named.named,
-            _ => panic!("Eloquent macro only supports structs with named fields"),
+            _ => panic!("Orm macro only supports structs with named fields"),
         },
-        _ => panic!("Eloquent macro can only be used on structs"),
+        _ => panic!("Orm macro can only be used on structs"),
     };
 
     let mut normal_fields = vec![];
@@ -116,7 +116,7 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
         let mut is_hidden = false;
 
         for attr in &field.attrs {
-            if attr.path().is_ident("eloquent") {
+            if attr.path().is_ident("orm") {
                 let token_str = match attr.meta.require_list() {
                     Ok(list) => list.tokens.to_string(),
                     Err(_) => continue, // Skip malformed attributes

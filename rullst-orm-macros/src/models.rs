@@ -216,7 +216,7 @@ pub fn generate(
             }
 
             pub async fn save(&mut self) -> Result<(), rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::pool();
+                let pool = rullst_orm::Orm::pool();
                 self.save_with_tx_internal(pool).await
             }
 
@@ -248,7 +248,7 @@ pub fn generate(
                             obs.creating(self).await?;
                         }
                     }
-                    let driver = rullst_orm::Eloquent::driver();
+                    let driver = rullst_orm::Orm::driver();
                     if driver == "postgres" {
                         use rullst_orm::sqlx::query_builder::QueryBuilder;
                         use rullst_orm::sqlx::Execute;
@@ -348,22 +348,22 @@ pub fn generate(
                 #[cfg(feature = "redis")]
                 {
                     use rullst_orm::redis::AsyncCommands;
-                    let mut conn = rullst_orm::Eloquent::redis_manager();
+                    let mut conn = rullst_orm::Orm::redis_manager();
                     let payload = self.to_json();
                     if is_new {
-                        let topic = format!("eloquent:events:{}:created", #table_name);
+                        let topic = format!("orm:events:{}:created", #table_name);
                         let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
                         if let Err(e) = publish_result {
                             eprintln!("[Redis Error] Failed to publish created event: {}", e);
                         }
                     } else {
-                        let topic = format!("eloquent:events:{}:updated", #table_name);
+                        let topic = format!("orm:events:{}:updated", #table_name);
                         let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
                         if let Err(e) = publish_result {
                             eprintln!("[Redis Error] Failed to publish updated event: {}", e);
                         }
                     }
-                    let topic = format!("eloquent:events:{}:saved", #table_name);
+                    let topic = format!("orm:events:{}:saved", #table_name);
                     let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
                     if let Err(e) = publish_result {
                         eprintln!("[Redis Error] Failed to publish saved event: {}", e);
@@ -374,7 +374,7 @@ pub fn generate(
             }
 
             pub async fn delete(&self) -> Result<(), rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::pool();
+                let pool = rullst_orm::Orm::pool();
                 self.delete_with_tx_internal(pool).await
             }
 
@@ -412,9 +412,9 @@ pub fn generate(
                 #[cfg(feature = "redis")]
                 {
                     use rullst_orm::redis::AsyncCommands;
-                    let mut conn = rullst_orm::Eloquent::redis_manager();
+                    let mut conn = rullst_orm::Orm::redis_manager();
                     let payload = self.to_json();
-                    let topic = format!("eloquent:events:{}:deleted", #table_name);
+                    let topic = format!("orm:events:{}:deleted", #table_name);
                     let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
                     if let Err(e) = publish_result {
                         eprintln!("[Redis Error] Failed to publish deleted event: {}", e);
@@ -426,7 +426,7 @@ pub fn generate(
 
             pub async fn restore(&self) -> Result<(), rullst_orm::sqlx::Error> {
                 if #has_soft_deletes {
-                    let pool = rullst_orm::Eloquent::pool();
+                    let pool = rullst_orm::Orm::pool();
                     use rullst_orm::sqlx::query_builder::QueryBuilder;
                     let mut query_builder = QueryBuilder::new("UPDATE ");
                     query_builder.push(#table_name);
@@ -438,7 +438,7 @@ pub fn generate(
             }
 
             pub async fn force_delete(&self) -> Result<(), rullst_orm::sqlx::Error> {
-                let pool = rullst_orm::Eloquent::pool();
+                let pool = rullst_orm::Orm::pool();
                 use rullst_orm::sqlx::query_builder::QueryBuilder;
                 let mut query_builder = QueryBuilder::new("DELETE FROM ");
                 query_builder.push(#table_name);

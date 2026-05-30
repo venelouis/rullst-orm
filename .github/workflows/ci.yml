@@ -51,12 +51,12 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       
     - name: Publish Macro Crate
-      run: cargo publish -p rust-eloquent-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      run: cargo publish -p rullst-orm-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
       
     - name: Wait for crates.io index sync
       run: sleep 30
       
     - name: Publish Core Crate
       run: |
-        cargo publish -p rust-eloquent --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || \
-        (sleep 30 && cargo publish -p rust-eloquent --token ${{ secrets.CARGO_REGISTRY_TOKEN }})
+        cargo publish -p rullst-orm --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || \
+        (sleep 30 && cargo publish -p rullst-orm --token ${{ secrets.CARGO_REGISTRY_TOKEN }})

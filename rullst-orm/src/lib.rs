@@ -84,10 +84,10 @@ impl From<bool> for EloquentValue {
     fn from(b: bool) -> Self { EloquentValue::Bool(b) }
 }
 
-/// Eloquent configuration structure
-pub struct Eloquent;
+/// Orm configuration structure
+pub struct Orm;
 
-impl Eloquent {
+impl Orm {
     /// Initialize the global database connection pool using an agnostic URI
     pub async fn init(database_url: &str) -> Result<(), sqlx::Error> {
         #[cfg(not(any(feature = "strict-postgres", feature = "strict-mysql", feature = "strict-sqlite")))]
@@ -96,7 +96,7 @@ impl Eloquent {
         let pool = EloquentPool::connect(database_url).await?;
         
         if DB_POOL.set(pool).is_err() {
-            panic!("Eloquent has already been initialized");
+            panic!("Orm has already been initialized");
         }
 
         let driver = if database_url.starts_with("postgres") {
@@ -121,7 +121,7 @@ impl Eloquent {
         let pool = EloquentPool::connect(primary_url).await?;
         
         if DB_POOL.set(pool).is_err() {
-            panic!("Eloquent has already been initialized");
+            panic!("Orm has already been initialized");
         }
 
         let driver = if primary_url.starts_with("postgres") {
@@ -146,7 +146,7 @@ impl Eloquent {
 
     /// Retrieve the global database connection pool (strictly for writes)
     pub fn pool() -> &'static EloquentPool {
-        DB_POOL.get().expect("Eloquent must be initialized before querying")
+        DB_POOL.get().expect("Orm must be initialized before querying")
     }
 
     /// Retrieve the connection pool for read operations.
@@ -162,7 +162,7 @@ impl Eloquent {
 
     /// Retrieve the active driver string
     pub fn driver() -> &'static str {
-        DB_DRIVER.get().expect("Eloquent must be initialized before querying").as_str()
+        DB_DRIVER.get().expect("Orm must be initialized before querying").as_str()
     }
 
     /// Starts a new database transaction
@@ -237,7 +237,7 @@ pub trait Seeder: Send + Sync {
     async fn run(&self) -> Result<(), sqlx::Error>;
 }
 
-/// The core trait that all Eloquent models will implement via #[derive(Eloquent)]
+/// The core trait that all Orm models will implement via #[derive(Orm)]
 #[async_trait]
 pub trait EloquentModel {
     fn table_name() -> &'static str;

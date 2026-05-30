@@ -1,8 +1,8 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 use rullst_orm::schema::{Schema, Blueprint};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "accounts")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "accounts")]
 pub struct Account {
     pub id: i32,
     pub owner: String,
@@ -14,7 +14,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 1. Initialize DB
     let _ = std::fs::remove_file("transactions_test.db");
     std::fs::File::create("transactions_test.db").unwrap();
-    Eloquent::init("sqlite://transactions_test.db").await?;
+    Orm::init("sqlite://transactions_test.db").await?;
 
     // 2. Schema
     Schema::create("accounts", |table: &mut Blueprint| {
@@ -37,7 +37,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // Scenario 1: A Successful Transaction (Transfer $50 from Alice to Bob)
     // ---------------------------------------------------------
     println!("\n--- Attempting Successful Transfer ($50) ---");
-    let mut tx1 = Eloquent::begin_transaction().await?;
+    let mut tx1 = Orm::begin_transaction().await?;
     
     // Using `get_with_tx` and `save_with_tx`
     let mut alice = Account::query().where_eq("owner", "Alice").first_with_tx(&mut tx1).await?.unwrap();
@@ -56,7 +56,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // Scenario 2: A Failed Transaction (Transfer $200 from Alice to Bob, but Alice doesn't have enough)
     // ---------------------------------------------------------
     println!("\n--- Attempting Failed Transfer ($200) ---");
-    let mut tx2 = Eloquent::begin_transaction().await?;
+    let mut tx2 = Orm::begin_transaction().await?;
     
     let mut alice2 = Account::query().where_eq("owner", "Alice").first_with_tx(&mut tx2).await?.unwrap();
     let mut bob2 = Account::query().where_eq("owner", "Bob").first_with_tx(&mut tx2).await?.unwrap();

@@ -1,4 +1,4 @@
-use rullst_orm::Eloquent;
+use rullst_orm::Orm;
 use rullst_orm::schema::{Schema, Blueprint};
 
 #[tokio::main]
@@ -6,7 +6,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 1. Initialize Database
     let _ = std::fs::remove_file("migrations_test.db");
     std::fs::File::create("migrations_test.db").unwrap();
-    Eloquent::init("sqlite://migrations_test.db").await?;
+    Orm::init("sqlite://migrations_test.db").await?;
 
     println!("Creating tables using Fluent Schema Builder...\n");
 
@@ -35,7 +35,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     println!("Posts table created successfully!");
 
     // 4. Verification
-    let pool = Eloquent::pool();
+    let pool = Orm::pool();
     
     // Let's manually inspect the SQLite sqlite_schema table
     let tables: Vec<(String, String)> = rullst_orm::sqlx::query_as(

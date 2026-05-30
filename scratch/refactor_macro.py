@@ -2,7 +2,7 @@ import os
 import re
 
 def refactor():
-    src_dir = "rust-eloquent-macros/src"
+    src_dir = "rullst-orm-macros/src"
     with open(f"{src_dir}/lib.rs", "r", encoding="utf-8") as f:
         content = f.read()
     

@@ -1,4 +1,4 @@
-# Complete Audit: Rust Eloquent
+# Complete Audit: Rullst ORM
 
 **Date:** May 29, 2026  
 **Version:** 1.1.13  
@@ -8,7 +8,7 @@
 
 ## 📊 Executive Summary
 
-The **rullst-orm** library is a well-designed Active Record ORM for Rust, inspired by Laravel's Eloquent. The audit reveals a solid foundation with excellent enterprise features and recent improvements for sqlx 0.9 compatibility.
+The **rullst-orm** library is a well-designed Active Record ORM for Rust, inspired by Laravel's Orm. The audit reveals a solid foundation with excellent enterprise features and recent improvements for sqlx 0.9 compatibility.
 
 **Overall Score:** 10/10 (After v1.1.13 fixes)
 - ✅ **Security:** 10/10 (SQL injection risks fixed, QueryBuilder for sqlx 0.9 in v1.1.6-1.1.7, AssertSqlSafe wrapping in v1.1.13)
@@ -279,7 +279,7 @@ proc-macro2 = "1.0"       ✅ Latest
 
 **Status:** ✅ **EXCELLENT**
 
-The API follows Laravel Eloquent patterns, making it familiar for developers coming from PHP/Python. Auto-generated "magic methods" (e.g., `where_email`, `order_by_name`) significantly improve DX.
+The API follows Laravel Orm patterns, making it familiar for developers coming from PHP/Python. Auto-generated "magic methods" (e.g., `where_email`, `order_by_name`) significantly improve DX.
 
 ---
 

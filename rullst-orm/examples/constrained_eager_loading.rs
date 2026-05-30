@@ -1,18 +1,18 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
     
-    #[eloquent(has_many = "Post", foreign_key = "user_id")]
+    #[orm(has_many = "Post", foreign_key = "user_id")]
     #[sqlx(skip)]
     pub posts: Option<Vec<Post>>,
 }
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "posts")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "posts")]
 pub struct Post {
     pub id: i32,
     pub user_id: i32,
@@ -24,8 +24,8 @@ pub struct Post {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("test.db");
     std::fs::File::create("test.db").unwrap();
-    Eloquent::init("sqlite://test.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://test.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query("
         CREATE TABLE users (
@@ -44,7 +44,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     ").execute(pool).await?;
 
     // Create User
-    let mut user = User { id: 0, name: "Eloquent Dev".to_string(), posts: None };
+    let mut user = User { id: 0, name: "Orm Dev".to_string(), posts: None };
     user.save().await?;
 
     let saved_user = User::query().first().await?.unwrap();

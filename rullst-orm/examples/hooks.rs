@@ -1,7 +1,7 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users", before_save = "hash_password", after_fetch = "format_name")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users", before_save = "hash_password", after_fetch = "format_name")]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -31,8 +31,8 @@ impl User {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("hooks_test.db");
     std::fs::File::create("hooks_test.db").unwrap();
-    Eloquent::init("sqlite://hooks_test.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://hooks_test.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query("
         CREATE TABLE users (

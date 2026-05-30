@@ -1,10 +1,10 @@
-use rullst_orm::{Eloquent, sqlx::FromRow, EloquentModel};
+use rullst_orm::{Orm, sqlx::FromRow, EloquentModel};
 use rullst_orm::schema::Schema;
 
 // The Comment model represents a polymorphic child.
 // It can belong to either a Post or a Video.
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "comments")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "comments")]
 pub struct Comment {
     pub id: i32,
     pub body: String,
@@ -13,26 +13,26 @@ pub struct Comment {
 }
 
 // A Post can have many Comments
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "posts")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "posts")]
 pub struct Post {
     pub id: i32,
     pub title: String,
     
     // The polymorphic relationship!
-    #[eloquent(morph_many = "Comment", name = "commentable")]
+    #[orm(morph_many = "Comment", name = "commentable")]
     #[sqlx(skip)]
     pub comments: Option<Vec<Comment>>,
 }
 
 // A Video can ALSO have many Comments!
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "videos")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "videos")]
 pub struct Video {
     pub id: i32,
     pub url: String,
     
-    #[eloquent(morph_many = "Comment", name = "commentable")]
+    #[orm(morph_many = "Comment", name = "commentable")]
     #[sqlx(skip)]
     pub comments: Option<Vec<Comment>>,
 }
@@ -41,7 +41,7 @@ pub struct Video {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("polymorphic.db");
     std::fs::File::create("polymorphic.db").unwrap();
-    Eloquent::init("sqlite://polymorphic.db").await?;
+    Orm::init("sqlite://polymorphic.db").await?;
 
     Schema::create("posts", |table| {
         table.id();

@@ -9,7 +9,7 @@ mod relationships;
 mod models;
 mod factory_observer;
 
-#[proc_macro_derive(Eloquent, attributes(eloquent))]
+#[proc_macro_derive(Orm, attributes(orm))]
 pub fn eloquent_macro(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     

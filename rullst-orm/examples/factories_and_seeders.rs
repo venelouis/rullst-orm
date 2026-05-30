@@ -1,9 +1,9 @@
-use rullst_orm::{Eloquent, sqlx::FromRow, Seeder, async_trait};
+use rullst_orm::{Orm, sqlx::FromRow, Seeder, async_trait};
 use rullst_orm::schema::{Schema, Blueprint};
 use rand::RngExt;
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -43,7 +43,7 @@ impl Seeder for DatabaseSeeder {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("factories.db");
     std::fs::File::create("factories.db").unwrap();
-    Eloquent::init("sqlite://factories.db").await?;
+    Orm::init("sqlite://factories.db").await?;
 
     Schema::create("users", |table: &mut Blueprint| {
         table.id();
@@ -53,7 +53,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // Execute seeders globally!
     println!("--- Starting Database Seed ---");
-    Eloquent::seed(vec![Box::new(DatabaseSeeder)]).await?;
+    Orm::seed(vec![Box::new(DatabaseSeeder)]).await?;
 
     // Verify it worked
     let count = User::query().get().await?.len();

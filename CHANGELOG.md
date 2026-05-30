@@ -134,10 +134,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Global Lifecycle Observers:** Introduced a global type-safe observer pattern (`User::observe(Arc::new(UserObserverImpl))`) supporting `saving`, `saved`, `creating`, `created`, `updating`, `updated`, `deleting`, and `deleted` hooks.
 - **Rust Artisan CLI:** Engineered a transaction-safe database migration and seeding CLI architecture (`run_artisan` mapping `make:migration`, `migrate`, `migrate:rollback`, and `db:seed`).
 - **Subqueries & Advanced Joins:** Implemented `SubqueryBuilder` and `JoinClause` primitives allowing closure-based joins (`join_constrained`) and dynamic `EXISTS` subqueries (`where_exists`).
-- **Query Logging & Debugging:** Added internal `Eloquent::enable_query_log()` and `Eloquent::disable_query_log()` to instantly intercept and print generated SQL logic to STDOUT.
-- **Model Serialization & Field Hiding:** Enabled robust model JSON serialization natively compatible with `serde_json`. Added `#[eloquent(hidden)]` struct attribute to prevent sensitive columns from being exported inside `to_json()`.
+- **Query Logging & Debugging:** Added internal `Orm::enable_query_log()` and `Orm::disable_query_log()` to instantly intercept and print generated SQL logic to STDOUT.
+- **Model Serialization & Field Hiding:** Enabled robust model JSON serialization natively compatible with `serde_json`. Added `#[orm(hidden)]` struct attribute to prevent sensitive columns from being exported inside `to_json()`.
 - **`Json<T>` Transparency:** Extended internal wrapper `Json<T>` to natively implement `serde::Serialize` and `serde::Deserialize` for any inner struct `T`.
-- **Read/Write Connection Splitting:** Added support for dedicated read replicas (`Eloquent::init_replicas`) and automatic query routing: read queries go to replicas, write operations go to the primary node.
+- **Read/Write Connection Splitting:** Added support for dedicated read replicas (`Orm::init_replicas`) and automatic query routing: read queries go to replicas, write operations go to the primary node.
 - **Query Chunking & Cursors:** Implemented `.chunk(size, callback)` and `.chunk_with_tx(size, callback)` to process massive datasets efficiently in batches without loading everything into memory.
 - **Integrated Caching Layer:** Introduced the `redis` feature flag and the `.remember(seconds)` query method to instantly cache expensive database lookups natively.
 - **Background Event Hooks:** Added Redis Pub/Sub broadcasting for model lifecycle events. When models are saved or deleted, events are automatically broadcasted for external worker consumption.

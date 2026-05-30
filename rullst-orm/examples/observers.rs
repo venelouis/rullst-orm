@@ -1,9 +1,9 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -76,8 +76,8 @@ impl UserObserver for UserObserverImpl {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("test.db");
     std::fs::File::create("test.db").unwrap();
-    Eloquent::init("sqlite://test.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://test.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query("
         CREATE TABLE users (

@@ -1,6 +1,6 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -11,8 +11,8 @@ pub struct User {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // Para testar corretamente com o Pool do SQLX, precisamos de um arquivo físico
     let _ = std::fs::File::create("test.db");
-    Eloquent::init("sqlite://test.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://test.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query(
         "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)"

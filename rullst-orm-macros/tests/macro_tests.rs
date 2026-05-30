@@ -1,11 +1,11 @@
-use rullst_orm_macros::Eloquent;
+use rullst_orm_macros::Orm;
 use syn::{parse_quote, DeriveInput};
 
 #[test]
 fn test_basic_model() {
     let input: DeriveInput = parse_quote! {
-        #[derive(Eloquent)]
-        #[eloquent(table = "users")]
+        #[derive(Orm)]
+        #[orm(table = "users")]
         pub struct User {
             pub id: i32,
             pub name: String,
@@ -21,11 +21,11 @@ fn test_basic_model() {
 #[test]
 fn test_model_with_relations() {
     let input: DeriveInput = parse_quote! {
-        #[derive(Eloquent)]
+        #[derive(Orm)]
         pub struct Post {
             pub id: i32,
             pub title: String,
-            #[eloquent(has_many = "Comment")]
+            #[orm(has_many = "Comment")]
             comments: Option<Vec<Comment>>,
         }
     };
@@ -36,7 +36,7 @@ fn test_model_with_relations() {
 #[test]
 fn test_model_with_soft_deletes() {
     let input: DeriveInput = parse_quote! {
-        #[derive(Eloquent)]
+        #[derive(Orm)]
         pub struct User {
             pub id: i32,
             pub name: String,
@@ -50,11 +50,11 @@ fn test_model_with_soft_deletes() {
 #[test]
 fn test_model_with_hidden_fields() {
     let input: DeriveInput = parse_quote! {
-        #[derive(Eloquent)]
+        #[derive(Orm)]
         pub struct User {
             pub id: i32,
             pub name: String,
-            #[eloquent(hidden)]
+            #[orm(hidden)]
             pub password: String,
         }
     };

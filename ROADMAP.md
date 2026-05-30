@@ -1,10 +1,10 @@
-# Rust Eloquent Roadmap
+# Rullst ORM Roadmap
 
-Our goal is to bring the best of the **Laravel Eloquent** experience to the Rust ecosystem.
-Here we track the key features that differentiate Eloquent from other query builders and our implementation status.
+Our goal is to bring the best of the **Laravel Orm** experience to the Rust ecosystem.
+Here we track the key features that differentiate Orm from other query builders and our implementation status.
 
 ## ✅ Implemented
-- **Active Record/Models**: Structs directly connected to the database (`#[derive(Eloquent)]`).
+- **Active Record/Models**: Structs directly connected to the database (`#[derive(Orm)]`).
 - **Fluent Query Builder**: Method chaining (`.where_eq()`, `.order_by()`, etc).
 - **Asynchronous Execution**: Powered by Tokio + SQLx.
 - **Basic Magic Methods**: `.where_name("...").where_email("...")`.
@@ -21,11 +21,11 @@ Here we track the key features that differentiate Eloquent from other query buil
 - **Migrations**: Fluent schema builder API for creating tables.
 
 ## 🎉 Phase 1 Completed!
-All core features of Laravel Eloquent have been successfully ported to Rust.
+All core features of Laravel Orm have been successfully ported to Rust.
 
 ## 🚀 Phase 2: Advanced Features & Rust Superpowers
-- [x] **Database Transactions**: Wrapping queries in transactional blocks (`Eloquent::transaction`).
-- [x] **Eloquent Collections**: Custom collection struct with high-level methods (`map`, `pluck`, `key_by`).
+- [x] **Database Transactions**: Wrapping queries in transactional blocks (`Orm::transaction`).
+- [x] **Orm Collections**: Custom collection struct with high-level methods (`map`, `pluck`, `key_by`).
 - [x] **Compile-Time Safety**: Using Rust's strict typing and macros to check SQL columns at compile-time.
 - [x] **Polymorphic Relationships**: `morphTo`, `morphMany`, `morphOne`.
 - [x] **Factories and Seeders**: Fluent API for generating fake testing data.
@@ -33,14 +33,14 @@ All core features of Laravel Eloquent have been successfully ported to Rust.
 ## 👑 Phase 3: The Rust Masterpiece
 - [x] **Many-to-Many Relationships**: Implement pivot table support (`belongsToMany`).
 - [x] **Pagination with Metadata**: `.paginate(15)` returning total, current page, and data.
-- [x] **JSON Column Casting**: `#[eloquent(json)]` macro parameter to auto-deserialize `serde_json` structs.
+- [x] **JSON Column Casting**: `#[orm(json)]` macro parameter to auto-deserialize `serde_json` structs.
 - [x] **Constrained Eager Loading**: Passing closures to relationships like `.with_posts_constrained(|q| q...)`.
 - [x] **Rust Artisan (Migrations CLI)**: Command-line tool to generate, run, and rollback database migrations.
 - [x] **Observers & Lifecycle Events**: Global observer pattern to listen to model events (`creating`, `saved`, `deleted`) externally.
 - [x] **Subqueries & Advanced Joins**: Allowing closures for complex SQL joins and subqueries.
 - [x] **Artisan Seeding (db:seed)**: Populate tables via Artisan CLI using Seeders and Factories.
 - [x] **Query Logging & Debugging**: Inspect the executed SQL directly in terminal for optimization.
-- [x] **Model Serialization (Hiding Fields)**: Attribute `#[eloquent(hidden)]` to automatically skip sensitive columns during JSON serialization.
+- [x] **Model Serialization (Hiding Fields)**: Attribute `#[orm(hidden)]` to automatically skip sensitive columns during JSON serialization.
 
 ## 🏭 Phase 4: Enterprise Scale (v1.0.0)
 - [x] **Read/Write Connections Split**: Automatic routing of `SELECT` queries to database replicas and `INSERT/UPDATE/DELETE` to the primary node.
@@ -100,9 +100,9 @@ Refactor the query builder API (e.g., `.where_eq()`, `.or_where()`) to accept ge
 Our goal is to provide tools that normally cost thousands of dollars, completely free and open-source, ensuring `rullst-orm` stands unrivaled in the Rust ecosystem.
 
 - [ ] **Native Multi-Tenancy**: Built-in support for SaaS applications. Automatic isolation of tenant data via magic `tenant_id` columns or separate database schemas.
-- [ ] **Audit Trails (Revision History)**: A `#[eloquent(auditable)]` macro that automatically tracks "who changed what" in a separate history table for compliance and rollbacks.
+- [ ] **Audit Trails (Revision History)**: A `#[orm(auditable)]` macro that automatically tracks "who changed what" in a separate history table for compliance and rollbacks.
 - [ ] **Built-in Full-Text Search (Scout)**: `.search("query")` method that automatically syncs your models with Meilisearch, Algolia, or Elasticsearch upon saving.
-- [ ] **Rust Eloquent Admin Panel**: A drop-in crate that reads your `#[derive(Eloquent)]` models and instantly generates a beautiful web dashboard to manage your data without writing frontend code.
+- [ ] **Rullst ORM Admin Panel**: A drop-in crate that reads your `#[derive(Orm)]` models and instantly generates a beautiful web dashboard to manage your data without writing frontend code.
 - [ ] **Wasm & Edge Computing**: Running the ORM directly on Cloudflare Workers or Vercel Edge with Serverless DB drivers (PlanetScale, Neon).
 
 ## 🧠 Phase 7: The Future (AI, Quantum & Infrastructure)
@@ -111,6 +111,6 @@ Pushing the boundaries of what an ORM can do in the modern era of computing.
 
 - [ ] **Native Vector DB & RAG Support (`pgvector`)**: Methods like `.where_similar("embedding", vector)` to natively support AI applications and Retrieval-Augmented Generation directly in standard SQL databases.
 - [ ] **AI-Powered Auto Migrations**: An opt-in tool that analyzes your Rust structs and uses a local or remote LLM to automatically generate the perfect SQL migration diffs, eliminating manual SQL typing.
-- [ ] **Eloquent Sail (Instant Docker)**: A CLI command that instantly spins up a `docker-compose` environment with Postgres, Redis, Meilisearch, and your Rust app pre-configured. Zero infra setup.
-- [ ] **Post-Quantum Cryptography**: A `#[eloquent(encrypt_pq)]` macro to encrypt sensitive columns (like medical records, passwords) at rest using post-quantum algorithms (e.g., CRYSTALS-Kyber) to future-proof against quantum computer attacks.
+- [ ] **Orm Sail (Instant Docker)**: A CLI command that instantly spins up a `docker-compose` environment with Postgres, Redis, Meilisearch, and your Rust app pre-configured. Zero infra setup.
+- [ ] **Post-Quantum Cryptography**: A `#[orm(encrypt_pq)]` macro to encrypt sensitive columns (like medical records, passwords) at rest using post-quantum algorithms (e.g., CRYSTALS-Kyber) to future-proof against quantum computer attacks.
 - [ ] **Distributed Graph Traversal**: Transforming standard SQL tables into Graph-like queries for deep recursive relationships (e.g., `friends.of.friends`) using advanced CTEs automatically generated by the ORM.

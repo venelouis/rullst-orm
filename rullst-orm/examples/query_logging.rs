@@ -1,7 +1,7 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "products")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "products")]
 pub struct Product {
     pub id: i32,
     pub name: String,
@@ -12,8 +12,8 @@ pub struct Product {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("query_log_test.db");
     std::fs::File::create("query_log_test.db").unwrap();
-    Eloquent::init("sqlite://query_log_test.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://query_log_test.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query("
         CREATE TABLE products (
@@ -31,7 +31,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     println!("Products count in DB: {}\n", products_count);
 
     println!("--- 2. Enabling Query Logging dynamically ---");
-    Eloquent::enable_query_log();
+    Orm::enable_query_log();
 
     println!("Saving second product (insert):");
     let mut p2 = Product { id: 0, name: "Ergonomic Office Chair".to_string(), price: 349.50 };
@@ -63,7 +63,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Product::query().where_gt("price", 300.0).delete_all().await?;
 
     println!("\n--- 3. Disabling Query Logging dynamically ---");
-    Eloquent::disable_query_log();
+    Orm::disable_query_log();
 
     println!("Executing query with logging disabled:");
     let final_count = Product::query().count().await?;

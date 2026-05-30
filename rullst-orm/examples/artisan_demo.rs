@@ -1,4 +1,4 @@
-use rullst_orm::Eloquent;
+use rullst_orm::Orm;
 use rullst_orm::schema::{Schema, Migration, run_artisan};
 
 pub struct CreateUsersMigration;
@@ -47,7 +47,7 @@ impl Migration for CreatePostsMigration {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("artisan_test.db");
     std::fs::File::create("artisan_test.db").unwrap();
-    Eloquent::init("sqlite://artisan_test.db").await?;
+    Orm::init("sqlite://artisan_test.db").await?;
 
     println!("--- 🛠️  Simulating Migration Execution (Batch 1) ---");
     let migrations: Vec<Box<dyn Migration>> = vec![
@@ -59,7 +59,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     run_artisan(migrations, vec![]).await?;
 
     // Verify migrations table and schemas
-    let pool = Eloquent::pool();
+    let pool = Orm::pool();
     let rows: Vec<(i32, String, i32)> = rullst_orm::sqlx::query_as(
         "SELECT id, migration, batch FROM migrations"
     ).fetch_all(pool).await?;

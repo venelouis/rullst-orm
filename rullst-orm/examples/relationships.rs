@@ -1,13 +1,13 @@
-use rullst_orm::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Orm, sqlx::FromRow};
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "users")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "users")]
 pub struct User {
     pub id: i32,
     pub name: String,
     
     // Virtual relationships field
-    #[eloquent(has_many = "Post", foreign_key = "user_id")]
+    #[orm(has_many = "Post", foreign_key = "user_id")]
     #[sqlx(skip)]
     pub posts: Option<Vec<Post>>,
 
@@ -15,14 +15,14 @@ pub struct User {
     pub deleted_at: Option<String>,
 }
 
-#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
-#[eloquent(table = "posts")]
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "posts")]
 pub struct Post {
     pub id: i32,
     pub user_id: i32,
     pub title: String,
 
-    #[eloquent(belongs_to = "User", foreign_key = "user_id")]
+    #[orm(belongs_to = "User", foreign_key = "user_id")]
     #[sqlx(skip)]
     pub author: Option<User>,
 }
@@ -31,8 +31,8 @@ pub struct Post {
 async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("test.db");
     std::fs::File::create("test.db").unwrap();
-    Eloquent::init("sqlite://test.db").await?;
-    let pool = Eloquent::pool();
+    Orm::init("sqlite://test.db").await?;
+    let pool = Orm::pool();
 
     rullst_orm::sqlx::query("
         CREATE TABLE users (

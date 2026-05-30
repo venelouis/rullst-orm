@@ -11,13 +11,13 @@ This document is the **Single Source of Truth (SST)** for the **rullst-orm ORM**
 
 ## 📂 1. Model Definition & Macro Attributes
 
-All Active Record entities are defined as Rust structs deriving `rullst_orm::Eloquent` and mapping to sqlx rows:
+All Active Record entities are defined as Rust structs deriving `rullst_orm::Orm` and mapping to sqlx rows:
 
 ```rust
-use rullst_orm::{Eloquent, EloquentModel, sqlx::{self, FromRow}};
+use rullst_orm::{Orm, EloquentModel, sqlx::{self, FromRow}};
 
-#[derive(Debug, Clone, FromRow, Eloquent)]
-#[eloquent(
+#[derive(Debug, Clone, FromRow, Orm)]
+#[orm(
     table = "table_name",           // Map to custom database table (defaults to lowercase plural struct name)
     global_scope = "my_scope",     // Apply query filter scope globally to all SELECTs
     before_save = "saving_hook",   // Method called before saving (creating or updating)
@@ -30,7 +30,7 @@ pub struct BlogPost {
     pub id: i32,
     pub title: String,
     
-    #[eloquent(hidden)]            // Skip this field during JSON serialization
+    #[orm(hidden)]            // Skip this field during JSON serialization
     pub secret_token: String,
     
     pub created_at: String,        // Automatic auto-timestamp
@@ -43,40 +43,40 @@ pub struct BlogPost {
 
 ## 🔗 2. Declarative Relationships
 
-Declare relationships directly on model fields using custom `#[eloquent(...)]` attributes. The derive macro generates both direct fetching futures and eager loading hooks.
+Declare relationships directly on model fields using custom `#[orm(...)]` attributes. The derive macro generates both direct fetching futures and eager loading hooks.
 
 ### 2.1. One-to-Many (`has_many`)
 One record owns multiple child records.
 ```rust
-#[eloquent(has_many = "Comment", foreign_key = "post_id", local_key = "id")]
+#[orm(has_many = "Comment", foreign_key = "post_id", local_key = "id")]
 pub comments: Option<Vec<Comment>>,
 ```
 
 ### 2.2. One-to-One (`has_one`)
 One record owns exactly one child record.
 ```rust
-#[eloquent(has_one = "Profile", foreign_key = "user_id", local_key = "id")]
+#[orm(has_one = "Profile", foreign_key = "user_id", local_key = "id")]
 pub profile: Option<Profile>,
 ```
 
 ### 2.3. Inverse Relationship (`belongs_to`)
 A child record belongs to a parent record.
 ```rust
-#[eloquent(belongs_to = "User", foreign_key = "user_id", related_key = "id")]
+#[orm(belongs_to = "User", foreign_key = "user_id", related_key = "id")]
 pub user: Option<User>,
 ```
 
 ### 2.4. Many-to-Many (`belongs_to_many`)
 Records linked through an intermediate pivot table.
 ```rust
-#[eloquent(belongs_to_many = "Role", pivot_table = "role_user", foreign_key = "user_id", related_key = "role_id", local_key = "id")]
+#[orm(belongs_to_many = "Role", pivot_table = "role_user", foreign_key = "user_id", related_key = "role_id", local_key = "id")]
 pub roles: Option<Vec<Role>>,
 ```
 
 ### 2.5. Polymorphic One-to-Many (`morph_many`)
 A target model belongs to more than one type of model on a single association.
 ```rust
-#[eloquent(morph_many = "Comment", name = "commentable", local_key = "id")]
+#[orm(morph_many = "Comment", name = "commentable", local_key = "id")]
 pub comments: Option<Vec<Comment>>,
 ```
 *Creates column checks for `<name>_type` and `<name>_id` on the target table (e.g. `commentable_type = "BlogPost"` and `commentable_id = blog_post.id`).*
@@ -84,7 +84,7 @@ pub comments: Option<Vec<Comment>>,
 ### 2.6. Polymorphic One-to-One (`morph_one`)
 A target model belongs to more than one type of model on a single association.
 ```rust
-#[eloquent(morph_one = "Image", name = "imageable", local_key = "id")]
+#[orm(morph_one = "Image", name = "imageable", local_key = "id")]
 pub image: Option<Image>,
 ```
 
@@ -155,18 +155,18 @@ Agnostic database connection management split cleanly between writes (primary no
 
 * **Single connection:**
   ```rust
-  Eloquent::init("sqlite://rullst.db").await?;
+  Orm::init("sqlite://rullst.db").await?;
   ```
 * **Primary / Replica routing:**
   ```rust
-  Eloquent::init_with_replicas(
+  Orm::init_with_replicas(
       "postgres://primary-db.host/prod",
       vec!["postgres://replica-1.host/prod", "postgres://replica-2.host/prod"]
   ).await?;
   ```
 * **Query splitting:**
-  * All builder execution methods like `.get()`, `.first()`, `.paginate()` dynamically fetch from `Eloquent::read_pool()`.
-  * All mutative operations like `.save()`, `.delete()`, `.begin_transaction()` dynamically fetch from `Eloquent::pool()`.
+  * All builder execution methods like `.get()`, `.first()`, `.paginate()` dynamically fetch from `Orm::read_pool()`.
+  * All mutative operations like `.save()`, `.delete()`, `.begin_transaction()` dynamically fetch from `Orm::pool()`.
 
 ---
 
