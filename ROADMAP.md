@@ -97,7 +97,7 @@ Refactor the query builder API (e.g., `.where_eq()`, `.or_where()`) to accept ge
 
 ## 🌍 Phase 6: The Ultimate Ecosystem (SaaS & Open Source Mastery)
 
-Our goal is to provide tools that normally cost thousands of dollars, completely free and open-source, ensuring `rust-eloquent` stands unrivaled in the Rust ecosystem.
+Our goal is to provide tools that normally cost thousands of dollars, completely free and open-source, ensuring `rullst-orm` stands unrivaled in the Rust ecosystem.
 
 - [ ] **Native Multi-Tenancy**: Built-in support for SaaS applications. Automatic isolation of tenant data via magic `tenant_id` columns or separate database schemas.
 - [ ] **Audit Trails (Revision History)**: A `#[eloquent(auditable)]` macro that automatically tracks "who changed what" in a separate history table for compliance and rollbacks.

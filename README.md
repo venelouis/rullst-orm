@@ -1,16 +1,16 @@
 # Rust Eloquent 🌟
 
-![Crates.io](https://img.shields.io/crates/v/rust-eloquent?style=flat-square&color=orange)
-![Downloads](https://img.shields.io/crates/d/rust-eloquent?style=flat-square&color=blue)
-![Docs.rs](https://img.shields.io/docsrs/rust-eloquent?style=flat-square&color=blue)
+![Crates.io](https://img.shields.io/crates/v/rullst-orm?style=flat-square&color=orange)
+![Downloads](https://img.shields.io/crates/d/rullst-orm?style=flat-square&color=blue)
+![Docs.rs](https://img.shields.io/docsrs/rullst-orm?style=flat-square&color=blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Databases](https://img.shields.io/badge/Databases-PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-lightgrey?style=flat-square)
-![CI](https://github.com/venelouis/rust-eloquent/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/venelouis/rullst-orm/actions/workflows/ci.yml/badge.svg)
 ![Static Audit](https://img.shields.io/badge/Static%20Audit-10%2F10-brightgreen?style=flat-square)
 
 An Active Record ORM for Rust, inspired by Laravel's Eloquent.
 
-Built on top of `sqlx` and procedural macros, **rust-eloquent** aims to bring the delightful and simplistic syntax of Laravel directly to the high-performance Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** universally out of the box using dynamic driver loading!
+Built on top of `sqlx` and procedural macros, **rullst-orm** aims to bring the delightful and simplistic syntax of Laravel directly to the high-performance Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** universally out of the box using dynamic driver loading!
 
 ## 🚀 Why Rust Eloquent?
 
@@ -33,10 +33,10 @@ In traditional Rust database handling, you have to write raw SQL queries, manage
 ## 📚 Documentation & Planning
 
 Explore our project documentation, future plans, and recent updates:
-- **[Changelog](https://github.com/venelouis/rust-eloquent/blob/main/CHANGELOG.md)**: Detailed release history and updates.
-- **[Roadmap v1.x](https://github.com/venelouis/rust-eloquent/blob/main/ROADMAP.md)**: Current roadmap and goals for the 1.x release cycle.
-- **[Roadmap v2.0](https://github.com/venelouis/rust-eloquent/blob/main/docs/v2_roadmap.md)**: Future plans and architecture for the upcoming major release.
-- **[Security & Performance Audit](https://github.com/venelouis/rust-eloquent/blob/main/docs/audit_report_complete.md)**: Our latest complete 10/10 architecture audit and resolution notes.
+- **[Changelog](https://github.com/venelouis/rullst-orm/blob/main/CHANGELOG.md)**: Detailed release history and updates.
+- **[Roadmap v1.x](https://github.com/venelouis/rullst-orm/blob/main/ROADMAP.md)**: Current roadmap and goals for the 1.x release cycle.
+- **[Roadmap v2.0](https://github.com/venelouis/rullst-orm/blob/main/docs/v2_roadmap.md)**: Future plans and architecture for the upcoming major release.
+- **[Security & Performance Audit](https://github.com/venelouis/rullst-orm/blob/main/docs/audit_report_complete.md)**: Our latest complete 10/10 architecture audit and resolution notes.
 
 ---
 
@@ -45,19 +45,19 @@ Explore our project documentation, future plans, and recent updates:
 Add the library to your project by running:
 
 ```bash
-cargo add rust-eloquent
+cargo add rullst-orm
 cargo add tokio -F full
 ```
 
 If you plan to use Redis caching or Pub/Sub events, enable the `redis` feature:
 
 ```bash
-cargo add rust-eloquent -F redis
+cargo add rullst-orm -F redis
 ```
 
 ### ⚡ Architecture Modes (The Best of Both Worlds)
 
-`rust-eloquent` uses Cargo Feature Flags to let you choose between developer productivity and extreme Rust performance, keeping everything in a single, unified repository!
+`rullst-orm` uses Cargo Feature Flags to let you choose between developer productivity and extreme Rust performance, keeping everything in a single, unified repository!
 
 - **Standard Mode (Default)**: Prioritizes extreme ease-of-use and dynamic typing (just like Laravel). It handles lifetimes automatically by allocating memory dynamically under the hood, making it perfect for rapid product development (SaaS, APIs, Web Apps).
 - **Strict Mode (Zero-Copy)**: Prioritizes zero-cost abstractions, zero-copy memory management (`std::borrow::Cow`), and compile-time SQL verification. It introduces lifetimes into your code but unlocks maximum hardware performance for high-load edge or financial systems. 
@@ -65,19 +65,19 @@ cargo add rust-eloquent -F redis
 To enable the Strict Performance Mode, simply use the feature flag in your `Cargo.toml`:
 ```toml
 # Developer Productivity (Default)
-rust-eloquent = "1.0"
+rullst-orm = "1.0"
 
 # Extreme Rust Performance (Strict / Zero-Copy)
-rust-eloquent = { version = "2.0", features = ["strict"] }
+rullst-orm = { version = "2.0", features = ["strict"] }
 ```
 
 ## 📖 Quick Start
 
 ```rust
-use rust_eloquent::{Eloquent, sqlx::FromRow};
+use rullst_orm::{Eloquent, sqlx::FromRow};
 
 // 1. Just add the Eloquent macro to your struct!
-#[derive(Debug, Clone, FromRow, rust_eloquent::Eloquent)]
+#[derive(Debug, Clone, FromRow, rullst_orm::Eloquent)]
 #[eloquent(table = "users")] // Optional: specifies a custom table name
 pub struct User {
     pub id: i32, // ID = 0 means it hasn't been saved yet
@@ -88,7 +88,7 @@ pub struct User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rust_eloquent::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // 2. Initialize the global connection pool
     Eloquent::init("sqlite::memory:").await?;
 
@@ -204,9 +204,9 @@ You can hook into your models’ lifecycle without cluttering your structs! Crea
 ```rust
 pub struct UserObserverImpl;
 
-#[rust_eloquent::async_trait]
+#[rullst_orm::async_trait]
 impl UserObserver for UserObserverImpl {
-    async fn saving(&self, model: &mut User) -> Result<(), rust_eloquent::sqlx::Error> {
+    async fn saving(&self, model: &mut User) -> Result<(), rullst_orm::sqlx::Error> {
         println!("We are about to save user: {}", model.name);
         Ok(())
     }
@@ -286,7 +286,7 @@ Ship your applications with an integrated database migration architecture runnin
 
 ```rust
 // In your application's CLI entry point:
-rust_eloquent::schema::run_artisan(std::env::args().collect(), vec![ /* Seeders here */ ]).await;
+rullst_orm::schema::run_artisan(std::env::args().collect(), vec![ /* Seeders here */ ]).await;
 ```
 
 **Commands provided natively:**

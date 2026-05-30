@@ -1,0 +1,31 @@
+[package]
+name = "rullst-orm"
+version = "1.1.13"
+edition = "2024"
+description = "An Active Record ORM for Rust, inspired by Laravel's Eloquent."
+license = "MIT"
+repository = "https://github.com/venelouis/rullst-orm"
+keywords = ["orm", "database", "sqlx", "eloquent", "active-record"]
+categories = ["database"]
+readme = "../README.md"
+
+[dependencies]
+rullst-orm-macros = { path = "../rullst-orm-macros", version = "1.1.13" }
+sqlx = { version = "0.9", features = ["sqlite", "postgres", "mysql", "any", "runtime-tokio", "macros", "json"] }
+tokio = { version = "1.43", features = ["full"] }
+async-trait = "0.1.86"
+futures = "0.3.32"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+redis = { version = "1.2", features = ["tokio-comp", "connection-manager"], optional = true }
+rand = "0.10"
+
+[features]
+default = []
+redis = ["dep:redis"]
+strict-postgres = []
+strict-mysql = []
+strict-sqlite = []
+
+[dev-dependencies]
+rand = "0.10"

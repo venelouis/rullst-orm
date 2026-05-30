@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Only the latest version of `rust-eloquent` is currently supported with security updates.
+Only the latest version of `rullst-orm` is currently supported with security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -13,5 +13,5 @@ Only the latest version of `rust-eloquent` is currently supported with security 
 
 Please do NOT report security vulnerabilities via public GitHub issues.
 
-If you believe you have found a security vulnerability in `rust-eloquent`, please report it by emailing the maintainer directly.
+If you believe you have found a security vulnerability in `rullst-orm`, please report it by emailing the maintainer directly.
 We will try to respond to your report within 48 hours.

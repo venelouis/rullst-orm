@@ -8,7 +8,7 @@
 
 ## 📊 Executive Summary
 
-The **rust-eloquent** library is a well-designed Active Record ORM for Rust, inspired by Laravel's Eloquent. The audit reveals a solid foundation with excellent enterprise features and recent improvements for sqlx 0.9 compatibility.
+The **rullst-orm** library is a well-designed Active Record ORM for Rust, inspired by Laravel's Eloquent. The audit reveals a solid foundation with excellent enterprise features and recent improvements for sqlx 0.9 compatibility.
 
 **Overall Score:** 10/10 (After v1.1.13 fixes)
 - ✅ **Security:** 10/10 (SQL injection risks fixed, QueryBuilder for sqlx 0.9 in v1.1.6-1.1.7, AssertSqlSafe wrapping in v1.1.13)
@@ -24,7 +24,7 @@ The **rust-eloquent** library is a well-designed Active Record ORM for Rust, ins
 
 ### 1.1 Critical: SQL Injection in Dynamic Queries
 
-**Location:** `rust-eloquent/src/schema.rs:148-157`
+**Location:** `rullst-orm/src/schema.rs:148-157`
 
 **Status:** ✅ **FIXED in v1.1.5** - Added `validate_table_name()` function to prevent SQL injection
 
@@ -59,7 +59,7 @@ The **rust-eloquent** library is a well-designed Active Record ORM for Rust, ins
 
 ### 1.3 Medium: SQL Injection in `where_raw` and `or_where_raw`
 
-**Location:** `rust-eloquent-macros/src/builder.rs:127-135`
+**Location:** `rullst-orm-macros/src/builder.rs:127-135`
 
 **Status:** ⚠️ **DOCUMENTED** - API allows raw SQL without validation
 
@@ -76,7 +76,7 @@ The **rust-eloquent** library is a well-designed Active Record ORM for Rust, ins
 
 ### 1.4 Low: Missing User Input Validation
 
-**Location:** `rust-eloquent-macros/src/parser.rs:42-93`
+**Location:** `rullst-orm-macros/src/parser.rs:42-93`
 
 **Status:** ✅ **FIXED in v1.1.5** - Added `validate_relation_attribute()` function
 
@@ -109,8 +109,8 @@ The **rust-eloquent** library is a well-designed Active Record ORM for Rust, ins
 ### 2.2 Medium: Panic! Calls in lib.rs and parser.rs
 
 **Location:** 
-- `rust-eloquent/src/lib.rs:81, 104` - Double initialization check
-- `rust-eloquent-macros/src/parser.rs:91, 93` - Struct validation
+- `rullst-orm/src/lib.rs:81, 104` - Double initialization check
+- `rullst-orm-macros/src/parser.rs:91, 93` - Struct validation
 
 **Status:** ⚠️ **ACCEPTABLE** - Panics are intentional for programmer errors
 
@@ -146,7 +146,7 @@ The **rust-eloquent** library is a well-designed Active Record ORM for Rust, ins
 
 ### 2.4 Medium: Race Condition in Replica Round-Robin
 
-**Location:** `rust-eloquent/src/lib.rs:137-138`
+**Location:** `rullst-orm/src/lib.rs:137-138`
 
 **Status:** ✅ **FIXED in v1.1.5** - Moved modulo operation before array access
 
@@ -164,7 +164,7 @@ return &replicas[idx];
 
 ### 2.5 Low: Missing Redis Error Handling
 
-**Location:** `rust-eloquent-macros/src/models.rs:326-333`
+**Location:** `rullst-orm-macros/src/models.rs:326-333`
 
 **Status:** ✅ **FIXED in v1.1.5** - Added error logging with `eprintln!`
 
@@ -208,7 +208,7 @@ The N+1 query problem was completely resolved. The macro now generates `WHERE IN
 
 ### 3.3 Low: Unnecessary Clone in Observers
 
-**Location:** `rust-eloquent-macros/src/models.rs:233-236`
+**Location:** `rullst-orm-macros/src/models.rs:233-236`
 
 **Status:** ⚠️ **KEPT** - Clone is intentional for thread safety
 
@@ -222,7 +222,7 @@ The N+1 query problem was completely resolved. The macro now generates `WHERE IN
 
 ### 3.4 Excellent: Efficient QueryBuilder Usage
 
-**Location:** `rust-eloquent-macros/src/models.rs, builder.rs`
+**Location:** `rullst-orm-macros/src/models.rs, builder.rs`
 
 **Status:** ✅ **EXCELLENT** - Full QueryBuilder implementation for sqlx 0.9 compatibility
 
@@ -238,7 +238,7 @@ The N+1 query problem was completely resolved. The macro now generates `WHERE IN
 
 **Updated:** May 29, 2026
 
-**rust-eloquent/Cargo.toml:**
+**rullst-orm/Cargo.toml:**
 ```toml
 sqlx = "0.9"              ✅ Latest
 tokio = "1.43"            ✅ Latest
@@ -250,7 +250,7 @@ redis = "1.2"             ✅ Latest
 rand = "0.10"             ✅ Latest
 ```
 
-**rust-eloquent-macros/Cargo.toml:**
+**rullst-orm-macros/Cargo.toml:**
 ```toml
 syn = "2.0"               ✅ Latest
 quote = "1.0"             ✅ Latest
@@ -263,7 +263,7 @@ proc-macro2 = "1.0"       ✅ Latest
 
 ### 4.2 Rust Edition Compatibility
 
-**Status:** `rust-eloquent` uses `edition = "2024"`, `rust-eloquent-macros` uses `edition = "2021"`
+**Status:** `rullst-orm` uses `edition = "2024"`, `rullst-orm-macros` uses `edition = "2021"`
 
 **Note:** The main library uses Rust 2024 edition for `let chains` support. The macros crate uses Rust 2021 for broader compatibility.
 
@@ -340,7 +340,7 @@ Well-implemented advanced features:
 
 **Problem:** Use of dynamic `EloquentValue` enum
 
-**Location:** `rust-eloquent/src/lib.rs:46-53`
+**Location:** `rullst-orm/src/lib.rs:46-53`
 
 ```rust
 // ⚠️ Dynamic enum loses Rust type safety
@@ -383,7 +383,7 @@ pub enum EloquentValue {
 
 **Problem:** Complex procedural macros can be hard to maintain
 
-**Location:** `rust-eloquent-macros/src/builder.rs` (791 lines)
+**Location:** `rullst-orm-macros/src/builder.rs` (791 lines)
 
 **Status:** ✅ **IMPROVED in v1.1.5-1.1.7**
 
@@ -440,7 +440,7 @@ pub enum EloquentValue {
 
 ## 🎯 8. CONCLUSION
 
-The **rust-eloquent** library is a solid and well-maintained project with modern architecture and impressive enterprise features. Key strengths:
+The **rullst-orm** library is a solid and well-maintained project with modern architecture and impressive enterprise features. Key strengths:
 
 - ✅ Intuitive API inspired by Laravel
 - ✅ Well-implemented enterprise features

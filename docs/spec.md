@@ -1,20 +1,20 @@
-# rust-eloquent Specification 📄
+# rullst-orm Specification 📄
 ### *"The Single Source of Truth (SST) for ORM Architecture & Macros"*
 
-This document is the **Single Source of Truth (SST)** for the **rust-eloquent ORM**. It specifies the exact macros, attributes, query builders, and database connection architectures available in `rust-eloquent`.
+This document is the **Single Source of Truth (SST)** for the **rullst-orm ORM**. It specifies the exact macros, attributes, query builders, and database connection architectures available in `rullst-orm`.
 
 > [!IMPORTANT]
 > **AI Alignment Instruction:**
-> Whenever updating, refactoring, or generating code for applications using rust-eloquent, **always** refer to this specification as the baseline. Do not invent or assume macro parameters or query patterns outside of this document.
+> Whenever updating, refactoring, or generating code for applications using rullst-orm, **always** refer to this specification as the baseline. Do not invent or assume macro parameters or query patterns outside of this document.
 
 ---
 
 ## 📂 1. Model Definition & Macro Attributes
 
-All Active Record entities are defined as Rust structs deriving `rust_eloquent::Eloquent` and mapping to sqlx rows:
+All Active Record entities are defined as Rust structs deriving `rullst_orm::Eloquent` and mapping to sqlx rows:
 
 ```rust
-use rust_eloquent::{Eloquent, EloquentModel, sqlx::{self, FromRow}};
+use rullst_orm::{Eloquent, EloquentModel, sqlx::{self, FromRow}};
 
 #[derive(Debug, Clone, FromRow, Eloquent)]
 #[eloquent(
@@ -187,7 +187,7 @@ let users = User::factory(|| User {
 ### 6.2. Observers
 Attach lifecycle listeners externally:
 ```rust
-#[rust_eloquent::async_trait]
+#[rullst_orm::async_trait]
 pub trait UserObserver: Send + Sync {
     async fn creating(&self, model: &mut User) -> Result<(), sqlx::Error>;
     async fn created(&self, model: &User) -> Result<(), sqlx::Error>;
@@ -197,7 +197,7 @@ pub trait UserObserver: Send + Sync {
 ### 6.3. Seeders
 Standard populate traits:
 ```rust
-#[rust_eloquent::async_trait]
+#[rullst_orm::async_trait]
 impl Seeder for DatabaseSeeder {
     async fn run(&self) -> Result<(), sqlx::Error> {
         User::factory(|| User { ... }).count(10).create().await?;

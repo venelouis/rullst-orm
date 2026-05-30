@@ -119,7 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Dependencies Updated:** All `cargo` dependencies bumped to their latest versions.
 - **Removed Unused Imports:** Cleaned up the codebase with `cargo clippy --fix`.
-- **Macro Modularization:** Splitted the massive `rust-eloquent-macros` monolith into smaller files (`parser.rs`, `builder.rs`, `models.rs`, etc.) to improve maintainability and AI processing capabilities.
+- **Macro Modularization:** Splitted the massive `rullst-orm-macros` monolith into smaller files (`parser.rs`, `builder.rs`, `models.rs`, etc.) to improve maintainability and AI processing capabilities.
 
 ## [1.1.0] - 2026-05-25
 
@@ -144,7 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Refactored core macro procedural code for faster compilation checks.
-- Unified dependencies natively within the `rust_eloquent` framework boundary, eliminating the need for developers to pull downstream extensions like `serde` and `serde_json` manually.
+- Unified dependencies natively within the `rullst_orm` framework boundary, eliminating the need for developers to pull downstream extensions like `serde` and `serde_json` manually.
 
 ## [0.1.2] - 2026-05-20
 ### Fixed

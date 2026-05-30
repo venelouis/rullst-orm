@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "rust-eloquent",
-    "rust-eloquent-macros",
+    "rullst-orm",
+    "rullst-orm-macros",
 ]
 resolver = "2"

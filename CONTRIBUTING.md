@@ -1,8 +1,8 @@
-# Contributing to rust-eloquent
+# Contributing to rullst-orm
 
 First off, thanks for taking the time to contribute! :tada: :+1:
 
-The following is a set of guidelines for contributing to `rust-eloquent`.
+The following is a set of guidelines for contributing to `rullst-orm`.
 
 ## Branching Strategy
 

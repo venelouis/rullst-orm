@@ -11,7 +11,7 @@
                         for model in &results {
                             futures.push(model.#method_name());
                         }
-                        let resolved_rels = rust_eloquent::futures::future::join_all(futures).await;
+                        let resolved_rels = rullst_orm::futures::future::join_all(futures).await;
                         for (i, result) in resolved_rels.into_iter().enumerate() {
                             if let Ok(rel) = result {
                                 results[i].#method_name = Some(rel);
