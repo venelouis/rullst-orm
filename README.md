@@ -33,10 +33,10 @@ In traditional Rust database handling, you have to write raw SQL queries, manage
 ## 📚 Documentation & Planning
 
 Explore our project documentation, future plans, and recent updates:
-- **[Changelog](CHANGELOG.md)**: Detailed release history and updates.
-- **[Roadmap v1.x](ROADMAP.md)**: Current roadmap and goals for the 1.x release cycle.
-- **[Roadmap v2.0](docs/v2_roadmap.md)**: Future plans and architecture for the upcoming major release.
-- **[Security & Performance Audit](docs/audit_report_complete.md)**: Our latest complete 10/10 architecture audit and resolution notes.
+- **[Changelog](https://github.com/venelouis/rust-eloquent/blob/main/CHANGELOG.md)**: Detailed release history and updates.
+- **[Roadmap v1.x](https://github.com/venelouis/rust-eloquent/blob/main/ROADMAP.md)**: Current roadmap and goals for the 1.x release cycle.
+- **[Roadmap v2.0](https://github.com/venelouis/rust-eloquent/blob/main/docs/v2_roadmap.md)**: Future plans and architecture for the upcoming major release.
+- **[Security & Performance Audit](https://github.com/venelouis/rust-eloquent/blob/main/docs/audit_report_complete.md)**: Our latest complete 10/10 architecture audit and resolution notes.
 
 ---
 
@@ -53,6 +53,22 @@ If you plan to use Redis caching or Pub/Sub events, enable the `redis` feature:
 
 ```bash
 cargo add rust-eloquent -F redis
+```
+
+### ⚡ Architecture Modes (The Best of Both Worlds)
+
+`rust-eloquent` uses Cargo Feature Flags to let you choose between developer productivity and extreme Rust performance, keeping everything in a single, unified repository!
+
+- **Standard Mode (Default)**: Prioritizes extreme ease-of-use and dynamic typing (just like Laravel). It handles lifetimes automatically by allocating memory dynamically under the hood, making it perfect for rapid product development (SaaS, APIs, Web Apps).
+- **Strict Mode (Zero-Copy)**: Prioritizes zero-cost abstractions, zero-copy memory management (`std::borrow::Cow`), and compile-time SQL verification. It introduces lifetimes into your code but unlocks maximum hardware performance for high-load edge or financial systems. 
+
+To enable the Strict Performance Mode, simply use the feature flag in your `Cargo.toml`:
+```toml
+# Developer Productivity (Default)
+rust-eloquent = "1.0"
+
+# Extreme Rust Performance (Strict / Zero-Copy)
+rust-eloquent = { version = "2.0", features = ["strict"] }
 ```
 
 ## 📖 Quick Start
