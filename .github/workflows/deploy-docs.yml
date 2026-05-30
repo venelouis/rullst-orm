@@ -1,0 +1,47 @@
+name: Deploy Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'docs/**/*.md'
+      - '.github/workflows/deploy-docs.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install RullstPress
+        run: |
+          # Here we install the RullstPress SSG.
+          # Until published on crates.io, we fetch it directly from the Rullst repo.
+          cargo install --git https://github.com/venelouis/Rullst.git --bin rullst-press || echo "Publish to crates.io pending. Skipping for now if it fails."
+          
+          # Fallback: if the repo is private or not up yet, we will just simulate it or use the local binary if we ever commit it.
+          # Once published, this will simply be `cargo install rullst-press`
+
+      - name: Build Docs
+        run: |
+          # Check if rullst-press was successfully installed
+          if command -v rullst-press &> /dev/null; then
+              rullst-press build
+          else
+              echo "rullst-press not available yet. Skipping docs generation."
+              mkdir -p docs/dist
+              echo "Docs pending..." > docs/dist/index.html
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/dist
+          publish_branch: gh-pages
