@@ -49,51 +49,19 @@ All core features of Laravel Orm have been successfully ported to Rust.
 - [x] **Background Event Hooks**: Optional pub/sub event broadcasting when models change, allowing seamless integration with external worker queues.
 - [x] **Security & Performance Static Audit**: All critical and medium-priority findings from the Jules/Antigravity architecture audit resolved in v1.1.13 (QueryBuilder binding fix, error propagation, clippy compliance).
 
-## 🔮 Phase 5: Version 2.0.0 Roadmap (Breaking Changes)
+## 🔮 Phase 5: Version 3.0.0 Architecture (Completed)
 
-This section outlines the planned breaking changes and architectural upgrades for the next major release (`v2.0.0`). These changes were intentionally deferred from the `v1.x` branch to preserve backward compatibility and maintain the simplistic, lifetime-free API.
+With the release of `v3.0.0`, we successfully rebranded from Eloquent to Rullst and solidified our architectural direction. We made a conscious design decision to **abandon the "Zero-Copy" (`std::borrow::Cow`) architecture** that was previously planned for the query builder.
 
-### 1. ⚡ Zero-Copy Query Builder (String Optimization)
+**Why abandon Zero-Copy?** 
+Rullst ORM is built on the philosophy of extreme developer productivity (Laravel-like ease of use). Introducing lifetimes (`<'a>`) into the public API would force developers to fight the Rust borrow checker during standard database operations, entirely defeating the purpose of the library. We prioritize ergonomics, and the negligible overhead of heap `String` allocation is a tradeoff we gladly accept for a clean, lifetime-free API.
 
-**Current State (v1.x):**
-The `QueryBuilder` allocates new `String` objects on the heap using `format!` for every condition (e.g., `where_eq`, `join`, `order_by`). This was done to keep the API simple and avoid polluting the builder and `ActiveRecord` implementation with generic lifetimes (`<'a>`).
+Instead, we achieved **Compile-Time Safety** without lifetimes through our Strict Feature Flags:
 
-**Proposed Change (v2.0):**
-Refactor the internal `wheres`, `joins`, and `selects` collections to use `std::borrow::Cow<'a, str>`.
-- This will completely eliminate heap allocations for static column names and SQL fragments.
-- **Breaking Change:** The `QueryBuilder` struct will require a lifetime parameter `QueryBuilder<'a>`. All functions returning or chaining the builder will need to declare this lifetime, cascading into the asynchronous `Future` bounds of `ActiveRecord` methods.
-- **Implementation Strategy:** This profound transition will be implemented iteratively on the `dev` branch to ensure we can solve the complex lifetime cascades before enforcing it on end users.
-
-### 2. 🛡️ Strict SQL Typing (Via Feature Flags)
-
-**Current State (v1.x):**
-The library uses `sqlx::AnyPool` and a custom generic enum (`RullstValue`) to map types dynamically at runtime. This allows the ORM to connect to PostgreSQL, MySQL, and SQLite seamlessly without changing the Rust codebase. However, it sacrifices Rust's powerful compile-time SQL verification.
-
-**Proposed Change (v2.0):**
-Introduce an optional "Strict Mode" via Cargo **Feature Flags** (e.g., `features = ["strict-postgres"]`).
-- **Strategic Update:** Instead of removing `AnyPool` entirely and breaking compatibility for all current users, the `v1.x` dynamic mode will remain available.
-- When the strict feature flag is enabled, the ORM will inject strongly-typed executors (`PgPool`, `MySqlPool`, `SqlitePool`) directly into the AST generation. All internal query builders and connection handlers will drop `sqlx::Any` and statically map parameters natively to the compiled target driver, eliminating runtime conversion errors and performance overhead.
-- Additionally, the ORM will use `sqlx::query!` macros to validate SQL queries against the actual database schema at compile time, and the underlying pool will switch to specific pools like `PgPool` or `MySqlPool`.
-- **Build Setup Note:** `sqlx::query!` compile-time validation requires SQLx metadata during builds (typically `DATABASE_URL` or SQLx offline `.sqlx` data), so strict mode introduces extra build/CI setup requirements.
-- This dual-approach provides a safe migration path for existing applications while offering maximum safety for new projects.
-
-### 3. 🧹 Automated Resource Cleanup (Subquery Scopes)
-
-**Current State (v1.x):**
-Subqueries and raw scope injections do not automatically drop their memory footprints until the parent query completes execution.
-
-**Proposed Change (v2.0):**
-Implement custom `Drop` traits or an explicit arena allocator for complex query chains to reduce the maximum memory footprint during large `EXISTS` subquery resolutions.
-
-### 4. 🧬 Query Builder Generics & Type-Safe Bindings
-
-**Current State (v1.x):**
-The library relies on a dynamic enum (`RullstValue`) to represent and bind variables into SQL statements (e.g. `String`, `Int`, `Float`). This creates an unnecessary indirection layer and a small memory overhead allocating variables into the enum wrapper before binding them.
-
-**Proposed Change (v2.0):**
-Refactor the query builder API (e.g., `.where_eq()`, `.or_where()`) to accept generic types bound by SQLx's native `sqlx::Encode` and `sqlx::Type` traits.
-- This will completely remove the need for `RullstValue` in strict mode environments.
-- Bindings will be statically pushed down to the underlying database driver natively, making execution slightly faster and memory-safe.
+### 🛡️ Strict SQL Typing (Delivered via Feature Flags)
+We introduced the `strict-postgres`, `strict-mysql`, and `strict-sqlite` feature flags. 
+- When enabled, the ORM bypasses the dynamic `sqlx::AnyPool` and natively binds to the specific database driver, enabling strict compile-time verification without polluting the user's code with lifetimes.
+- The default behavior remains dynamically typed, ensuring maximum flexibility for rapid prototyping.
 
 ## 🌍 Phase 6: The Ultimate Ecosystem (SaaS & Open Source Mastery)
 
