@@ -8,8 +8,6 @@
 ![CI](https://github.com/venelouis/rullst-orm/actions/workflows/ci.yml/badge.svg)
 ![Static Audit](https://img.shields.io/badge/Static%20Audit-10%2F10-brightgreen?style=flat-square)
 
-**Release:** v3.0.0 (2026-05-30) — see the [CHANGELOG](CHANGELOG.md#L1-L40) for full release notes. The repository includes CI automation to publish to crates.io when a `v*` tag is pushed (see `.github/workflows/ci.yml`). Ensure `CARGO_REGISTRY_TOKEN` is configured in repository secrets to enable automated publishing.
-
 An Active Record ORM for Rust, inspired by Laravel's Orm.
 
 Built on top of `sqlx` and procedural macros, **rullst-orm** aims to bring the delightful and simplistic syntax of Laravel directly to the high-performance Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** universally out of the box using dynamic driver loading!

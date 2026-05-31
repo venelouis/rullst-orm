@@ -7,3 +7,17 @@ test.db
 *.recovered*
 expanded.rs
 *.txt
+# Legacy directories (old crate name, pre-rename artifacts)
+rust-eloquent/
+# Work directory (UA scratch space)
+work/
+scratch/
+# Cargo audit JSON output
+cargo_audit.json
+# Recovery files from previous sessions
+*.recovered
+*.recovered2
+*.recovered3
+lib.rs.recovered*
+# Scratch source files
+largest_chunk.rs

@@ -1,23 +1,28 @@
-name: CI
+name: Rust CI & Publish
 
 on:
-  pull_request:
-    branches: [ main, dev ]
   push:
-    branches: [ main, dev ]
+    branches: [ "main", "dev" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "main", "dev" ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build_and_test:
+    name: Build and Test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          profile: minimal
-          components: clippy
+          components: clippy, rustfmt
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -27,18 +32,21 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run tests
-        run: cargo test --workspace --all-features
+      - name: Check Formatting
+        run: cargo fmt -- --check
 
-      - name: Run clippy (deny warnings)
+      - name: Run Clippy (deny warnings)
         run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
-      - name: Install cargo-audit
-        run: |
-          cargo install --locked cargo-audit || true
+      - name: Run Tests
+        run: cargo test --workspace --all-features
 
-      - name: Run cargo audit
+      - name: Install cargo-audit
+        run: cargo install --locked cargo-audit || true
+
+      - name: Security Audit
         run: cargo audit
+
       - name: Measure build time
         run: |
           (/usr/bin/time -v cargo build --workspace --all-features) 2>&1 | tee build_time.txt || true
@@ -48,65 +56,26 @@ jobs:
         with:
           name: build-time
           path: build_time.txt
-name: Rust CI & Publish
-
-on:
-  push:
-    branches: [ "main", "dev" ]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [ "main", "master" ]
-
-env:
-  CARGO_TERM_COLOR: always
-
-jobs:
-  build_and_test:
-    name: Build and Test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy, rustfmt
-        
-    - name: Check Formatting
-      # run: cargo fmt -- --check
-      run: echo "Skipping strict fmt check for now"
-      
-    - name: Clippy Lints
-      # run: cargo clippy -- -D warnings
-      run: cargo clippy
-      
-    - name: Run Tests
-      run: cargo test --verbose --all-features
-      
-    - name: Security Audit
-      uses: rustsec/audit-check@v1.4.1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
     name: Publish to Crates.io
     needs: build_and_test
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Rust
-      uses: dtolnay/rust-toolchain@stable
-      
-    - name: Publish Macro Crate
-      run: cargo publish -p rullst-orm-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      
-    - name: Wait for crates.io index sync
-      run: sleep 30
-      
-    - name: Publish Core Crate
-      run: |
-        cargo publish -p rullst-orm --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || \
-        (sleep 30 && cargo publish -p rullst-orm --token ${{ secrets.CARGO_REGISTRY_TOKEN }})
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish Macro Crate
+        run: cargo publish -p rullst-orm-macros --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for crates.io index sync
+        run: sleep 30
+
+      - name: Publish Core Crate
+        run: |
+          cargo publish -p rullst-orm --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || \
+          (sleep 30 && cargo publish -p rullst-orm --token ${{ secrets.CARGO_REGISTRY_TOKEN }})
