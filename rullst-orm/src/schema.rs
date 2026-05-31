@@ -1,21 +1,45 @@
-﻿use sqlx::Error;
+use sqlx::Error;
 
-/// Validates a table name to prevent SQL injection
-/// Only allows alphanumeric characters, underscores, and hyphens
-fn validate_table_name(table_name: &str) -> Result<(), Error> {
-    if !table_name
+/// Allowlist of SQL comparison/join operators accepted in raw clause builders.
+const ALLOWED_OPERATORS: &[&str] = &["=", "!=", "<>", "<", ">", "<=", ">="];
+
+/// Validates a SQL identifier (column or table name) to prevent SQL injection.
+/// Allows alphanumeric characters, underscores, hyphens and a single dot
+/// for qualified names like `table.column`.
+pub fn validate_identifier(name: &str) -> Result<(), Error> {
+    if name.is_empty() {
+        return Err(Error::Protocol("SQL identifier cannot be empty".to_string()));
+    }
+    // At most one dot is allowed (for `table.column` notation)
+    let dot_count = name.chars().filter(|&c| c == '.').count();
+    if dot_count > 1 {
+        return Err(Error::Protocol(format!(
+            "Invalid SQL identifier '{}': at most one dot is allowed",
+            name
+        )));
+    }
+    if !name
         .chars()
-        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
     {
         return Err(Error::Protocol(format!(
-            "Invalid table name '{}': only alphanumeric characters, underscores, and hyphens are allowed",
+            "Invalid SQL identifier '{}': only alphanumeric characters, underscores, hyphens and dots are allowed",
+            name
+        )));
+    }
+    Ok(())
+}
+
+/// Validates a table name to prevent SQL injection.
+/// Wraps `validate_identifier` but disallows dots (table names have no qualifier).
+fn validate_table_name(table_name: &str) -> Result<(), Error> {
+    if table_name.contains('.') {
+        return Err(Error::Protocol(format!(
+            "Invalid table name '{}': dots are not allowed in table names",
             table_name
         )));
     }
-    if table_name.is_empty() {
-        return Err(Error::Protocol("Table name cannot be empty".to_string()));
-    }
-    Ok(())
+    validate_identifier(table_name)
 }
 
 pub struct Column {
@@ -550,8 +574,25 @@ impl JoinClause {
         }
     }
 
-    /// WARNING: Ensure `first` and `second` do not contain user input to prevent SQL Injection.
+    /// Adds a column-to-column JOIN condition.
+    ///
+    /// # Panics
+    /// Panics if `first` or `second` are not valid SQL identifiers (alphanumeric,
+    /// underscores, hyphens, or a single qualifying dot), or if `operator` is not
+    /// one of: `=`, `!=`, `<>`, `<`, `>`, `<=`, `>=`.
+    /// This prevents SQL injection — column names should always be hardcoded, never
+    /// derived from user input.
     pub fn on(&mut self, first: &str, operator: &str, second: &str) -> &mut Self {
+        validate_identifier(first)
+            .unwrap_or_else(|e| panic!("JoinClause::on — invalid identifier for `first`: {}", e));
+        validate_identifier(second)
+            .unwrap_or_else(|e| panic!("JoinClause::on — invalid identifier for `second`: {}", e));
+        if !ALLOWED_OPERATORS.contains(&operator) {
+            panic!(
+                "JoinClause::on — invalid operator '{}'. Allowed: {:?}",
+                operator, ALLOWED_OPERATORS
+            );
+        }
         self.conditions
             .push(format!("{} {} {}", first, operator, second));
         self
@@ -614,5 +655,84 @@ mod tests {
         assert!(validate_table_name("user_posts").is_ok());
         assert!(validate_table_name("DROP TABLE users").is_err());
         assert!(validate_table_name("../../../etc/shadow").is_err());
+        // dots not allowed in table names
+        assert!(validate_table_name("users.id").is_err());
+    }
+
+    #[test]
+    fn test_validate_identifier() {
+        assert!(validate_identifier("users").is_ok());
+        assert!(validate_identifier("users.id").is_ok());
+        assert!(validate_identifier("user_posts").is_ok());
+        assert!(validate_identifier("").is_err());
+        assert!(validate_identifier("users.posts.id").is_err()); // two dots
+        assert!(validate_identifier("DROP TABLE users").is_err());
+        assert!(validate_identifier("id; DROP TABLE users--").is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid operator")]
+    fn test_join_clause_on_invalid_operator() {
+        let mut jc = JoinClause::new("posts");
+        jc.on("posts.user_id", "OR 1=1 --", "users.id");
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid identifier")]
+    fn test_join_clause_on_invalid_column() {
+        let mut jc = JoinClause::new("posts");
+        jc.on("users.id; DROP TABLE users--", "=", "posts.user_id");
+    }
+
+    #[test]
+    fn test_timestamps_adds_columns() {
+        let mut bp = Blueprint::new();
+        bp.timestamps();
+        assert_eq!(bp.columns.len(), 2);
+        assert_eq!(bp.columns[0].name, "created_at");
+        assert_eq!(bp.columns[1].name, "updated_at");
+        assert!(bp.columns[0].default_value.is_some());
+        assert!(bp.columns[1].default_value.is_some());
+    }
+
+    #[test]
+    fn test_soft_deletes_adds_nullable_column() {
+        let mut bp = Blueprint::new();
+        bp.soft_deletes();
+        assert_eq!(bp.columns.len(), 1);
+        assert_eq!(bp.columns[0].name, "deleted_at");
+        assert!(bp.columns[0].is_nullable);
+    }
+
+    #[test]
+    fn test_blueprint_build_produces_valid_sql() {
+        let mut bp = Blueprint::new();
+        bp.id();
+        bp.string("name").not_null();
+        bp.integer("age");
+        let sql = bp.build();
+        assert!(sql.contains("id INTEGER PRIMARY KEY"));
+        assert!(sql.contains("name TEXT NOT NULL"));
+        assert!(sql.contains("age INTEGER"));
+    }
+
+    #[test]
+    fn test_join_clause_on_eq_binds_value() {
+        let mut jc = JoinClause::new("orders");
+        jc.on_eq("orders.user_id", 42i32);
+        assert_eq!(jc.to_sql(), "orders.user_id = ?");
+        assert_eq!(jc.bindings.len(), 1);
+    }
+
+    #[test]
+    fn test_join_clause_multiple_conditions() {
+        let mut jc = JoinClause::new("posts");
+        jc.on("posts.user_id", "=", "users.id");
+        jc.on("posts.status", ">", "users.min_status");
+        assert_eq!(
+            jc.to_sql(),
+            "posts.user_id = users.id AND posts.status > users.min_status"
+        );
     }
 }
+

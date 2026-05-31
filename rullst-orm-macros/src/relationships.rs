@@ -1,4 +1,4 @@
-﻿use crate::parser::ParsedModel;
+use crate::parser::ParsedModel;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -301,8 +301,71 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                 }
             }
         } else {
+            let morph_type_ident = quote::format_ident!("{}_type", morph_name);
+            let morph_id_ident = quote::format_ident!("{}_id", morph_name);
             let method_name_constrained = quote::format_ident!("{}_constrained", field_name);
-            if rel_type == "morph_many" || rel_type == "belongs_to_many" {
+
+            if rel_type == "morph_many" {
+                // Batch load: one query with WHERE morph_id IN (...) AND morph_type = 'Name'
+                // eliminates the previous N+1 pattern (one query per parent model).
+                quote! {
+                    if self.#load_flag {
+                        let parent_ids: Vec<_> = results.iter().map(|m| m.#lk_ident.clone()).collect();
+                        if !parent_ids.is_empty() {
+                            let mut query = #rel_model_ident::query()
+                                .where_in(stringify!(#morph_id_ident), parent_ids)
+                                .where_eq(stringify!(#morph_type_ident), stringify!(#name));
+                            if let Some(ref filter) = self.#filter_flag {
+                                query = filter(query);
+                            }
+                            let mut all_related = Box::pin(query.get()).await?;
+                            for model in &mut results {
+                                let mut matching = vec![];
+                                let mut remaining = Vec::with_capacity(all_related.len());
+                                for related in all_related {
+                                    if related.#morph_id_ident == model.#lk_ident {
+                                        matching.push(related);
+                                    } else {
+                                        remaining.push(related);
+                                    }
+                                }
+                                all_related = remaining;
+                                model.#method_name = Some(matching);
+                            }
+                        }
+                    }
+                }
+            } else if rel_type == "morph_one" {
+                // Batch load: one query for all parents, then distribute.
+                quote! {
+                    if self.#load_flag {
+                        let parent_ids: Vec<_> = results.iter().map(|m| m.#lk_ident.clone()).collect();
+                        if !parent_ids.is_empty() {
+                            let mut query = #rel_model_ident::query()
+                                .where_in(stringify!(#morph_id_ident), parent_ids)
+                                .where_eq(stringify!(#morph_type_ident), stringify!(#name));
+                            if let Some(ref filter) = self.#filter_flag {
+                                query = filter(query);
+                            }
+                            let mut all_related = Box::pin(query.get()).await?;
+                            for model in &mut results {
+                                let mut matching = None;
+                                let mut i = 0;
+                                while i < all_related.len() {
+                                    if all_related[i].#morph_id_ident == model.#lk_ident {
+                                        matching = Some(all_related.swap_remove(i));
+                                        break;
+                                    }
+                                    i += 1;
+                                }
+                                model.#method_name = matching;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // belongs_to_many: batching requires a pivot-aware SQL rewrite;
+                // keep concurrent execution via try_join_all for now.
                 quote! {
                     if self.#load_flag {
                         let futures = results.iter().map(|model| {
@@ -318,24 +381,9 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         }
                     }
                 }
-            } else {
-                quote! {
-                    if self.#load_flag {
-                        let futures = results.iter().map(|model| {
-                            if let Some(ref filter) = self.#filter_flag {
-                                model.#method_name_constrained(filter.clone())
-                            } else {
-                                model.#method_name()
-                            }
-                        });
-                        let related_results = rullst_orm::futures::future::try_join_all(futures).await?;
-                        for (model, related) in results.iter_mut().zip(related_results.into_iter()) {
-                            model.#method_name = related;
-                        }
-                    }
-                }
             }
         }
+
     }).collect();
 
     GeneratedRelationships {

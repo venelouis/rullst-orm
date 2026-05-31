@@ -1,4 +1,4 @@
-﻿#[cfg(not(any(
+#[cfg(not(any(
     feature = "strict-postgres",
     feature = "strict-mysql",
     feature = "strict-sqlite"
@@ -214,11 +214,12 @@ impl Orm {
 
         let _ = DB_DRIVER.set(driver.to_string());
 
-        let mut replicas = vec![];
-        for url in replica_urls {
-            let p = RullstPool::connect(url).await?;
-            replicas.push(p);
-        }
+        // Initialize all replica pools concurrently — each connect() is independent I/O.
+        let replica_futures: Vec<_> = replica_urls
+            .into_iter()
+            .map(|url| RullstPool::connect(url))
+            .collect();
+        let replicas = futures::future::try_join_all(replica_futures).await?;
         let _ = REPLICA_POOLS.set(replicas);
 
         Ok(())
@@ -367,5 +368,23 @@ mod tests {
         assert!(matches!(v_int, RullstValue::Int(100)));
         let v_bool: RullstValue = false.into();
         assert!(matches!(v_bool, RullstValue::Bool(false)));
+    }
+
+    #[test]
+    fn test_enable_query_log_wrapper() {
+        // Orm::enable/disable_query_log delegate to schema — verify the delegation works.
+        Orm::disable_query_log();
+        assert!(!crate::schema::is_query_log_enabled());
+        Orm::enable_query_log();
+        assert!(crate::schema::is_query_log_enabled());
+        Orm::disable_query_log();
+        assert!(!crate::schema::is_query_log_enabled());
+    }
+
+    #[test]
+    fn test_disable_query_log_wrapper() {
+        Orm::enable_query_log();
+        Orm::disable_query_log();
+        assert!(!crate::schema::is_query_log_enabled());
     }
 }

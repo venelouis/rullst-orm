@@ -1,4 +1,4 @@
-﻿use crate::Orm;
+use crate::Orm;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -129,4 +129,49 @@ pub async fn create_audit_table() -> Result<(), sqlx::Error> {
 
     sqlx::query(query).execute(pool).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AuditLog;
+
+    #[test]
+    fn test_audit_log_serialization_round_trip() {
+        let log = AuditLog {
+            id: 1,
+            model_type: "User".to_string(),
+            model_id: 42,
+            event: "created".to_string(),
+            old_values: None,
+            new_values: Some(r#"{"name":"Alice"}"#.to_string()),
+            created_at: Some("2024-01-01T00:00:00Z".to_string()),
+        };
+
+        let json_str = serde_json::to_string(&log).expect("serialize");
+        assert!(json_str.contains("\"model_type\":\"User\""));
+        assert!(json_str.contains("\"event\":\"created\""));
+
+        let deserialized: AuditLog = serde_json::from_str(&json_str).expect("deserialize");
+        assert_eq!(deserialized.id, 1);
+        assert_eq!(deserialized.model_id, 42);
+        assert_eq!(deserialized.event, "created");
+        assert!(deserialized.old_values.is_none());
+    }
+
+    #[test]
+    fn test_audit_log_clone_debug() {
+        let log = AuditLog {
+            id: 5,
+            model_type: "Post".to_string(),
+            model_id: 99,
+            event: "updated".to_string(),
+            old_values: Some(r#"{"title":"Old"}"#.to_string()),
+            new_values: Some(r#"{"title":"New"}"#.to_string()),
+            created_at: None,
+        };
+        let cloned = log.clone();
+        assert_eq!(cloned.model_type, "Post");
+        // Debug must not panic
+        let _ = format!("{:?}", cloned);
+    }
 }

@@ -1,4 +1,4 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 use std::hash::Hash;
 
 /// An extension trait that brings Laravel-style Collection methods natively to Rust's Vec<T>.
@@ -122,5 +122,87 @@ impl<T> RullstCollection<T> for Vec<T> {
         T: crate::resource::ApiResource,
     {
         crate::resource::ResourceCollection::new(self).resolve()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_key_by() {
+        let v = vec![(1u32, "a"), (2, "b"), (3, "c")];
+        let map = v.key_by(|(k, _)| *k);
+        assert_eq!(map[&1].1, "a");
+        assert_eq!(map[&3].1, "c");
+    }
+
+    #[test]
+    fn test_chunk_even() {
+        let v = vec![1, 2, 3, 4];
+        let chunks = v.chunk(2);
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0], vec![1, 2]);
+        assert_eq!(chunks[1], vec![3, 4]);
+    }
+
+    #[test]
+    fn test_chunk_with_remainder() {
+        let v = vec![1, 2, 3, 4, 5];
+        let chunks = v.chunk(2);
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[2], vec![5]);
+    }
+
+    #[test]
+    fn test_chunk_zero_returns_all() {
+        let v = vec![1, 2, 3];
+        let chunks = v.chunk(0);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0], vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_implode() {
+        let v = vec![1, 2, 3];
+        let result = v.implode(", ", |n| n.to_string());
+        assert_eq!(result, "1, 2, 3");
+    }
+
+    #[test]
+    fn test_implode_single_element() {
+        let v = vec![42];
+        let result = v.implode(", ", |n| n.to_string());
+        assert_eq!(result, "42");
+    }
+
+    #[test]
+    fn test_sum_by() {
+        let v = vec![1, 2, 3, 4];
+        let sum: i32 = v.sum_by(|n| *n);
+        assert_eq!(sum, 10);
+    }
+
+    #[test]
+    fn test_max_by_key() {
+        let v = vec![3, 1, 4, 1, 5, 9];
+        let max = v.max_by_key(|n| *n);
+        assert_eq!(max, Some(&9));
+    }
+
+    #[test]
+    fn test_min_by_key() {
+        let v = vec![3, 1, 4, 1, 5, 9];
+        let min = v.min_by_key(|n| *n);
+        assert_eq!(min, Some(&1));
+    }
+
+    #[test]
+    fn test_empty_collection() {
+        let v: Vec<i32> = vec![];
+        assert!(v.max_by_key(|n| *n).is_none());
+        assert!(v.min_by_key(|n| *n).is_none());
+        let sum: i32 = v.sum_by(|n| *n);
+        assert_eq!(sum, 0);
     }
 }

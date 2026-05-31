@@ -1,4 +1,4 @@
-﻿use crate::parser::ParsedModel;
+use crate::parser::ParsedModel;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -177,15 +177,21 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
 
                 let driver = rullst_orm::Orm::driver();
                 let cast_type = if driver == "mysql" { "CHAR" } else { "TEXT" };
+                // Build parameterized LIKE conditions — the search value goes into
+                // bindings, never interpolated into the SQL string directly.
                 let like_query = format!("%{}%", query);
 
-                let mut raw_where = String::new();
                 let cols = vec![#(#cols),*];
-                for (i, col) in cols.iter().enumerate() {
-                    raw_where.push_str(&format!("CAST({} AS {}) LIKE '{}'", col, cast_type, like_query));
-                    if i < cols.len() - 1 {
-                        raw_where.push_str(" OR ");
-                    }
+                let mut raw_parts: Vec<String> = Vec::with_capacity(cols.len());
+                for col in &cols {
+                    // Template uses a `?` placeholder; value added to bindings below.
+                    raw_parts.push(format!("CAST({} AS {}) LIKE ?", col, cast_type));
+                }
+                let raw_where = raw_parts.join(" OR ");
+
+                // Add one binding per column (all use the same like_query value).
+                for _ in &cols {
+                    base_builder.bindings.push(rullst_orm::RullstValue::String(like_query.clone()));
                 }
 
                 base_builder.where_raw(raw_where.as_str())
@@ -405,24 +411,19 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 }
                 #audit_before_update
                 #hook_before_save
-                {
-                    let observers = {
-                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                        list.clone()
-                    };
-                    for obs in observers.iter() {
-                        obs.saving(self).await?;
-                    }
+                // Acquire the observer list once per operation. Cloning here avoids
+                // holding the RwLock across async await points (not allowed in Tokio)
+                // while eliminating 5 redundant lock acquisitions per save.
+                let observers = {
+                    let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
+                    list.clone()
+                };
+                for obs in &observers {
+                    obs.saving(self).await?;
                 }
                 if self.id == 0 {
-                    {
-                        let observers = {
-                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                            list.clone()
-                        };
-                        for obs in observers.iter() {
-                            obs.creating(self).await?;
-                        }
+                    for obs in &observers {
+                        obs.creating(self).await?;
                     }
                     let driver = rullst_orm::Orm::driver();
                     if driver == "postgres" || driver == "sqlite" {
@@ -467,24 +468,12 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                             result.get_last_insert_id() as i32
                         }
                     }
-                    {
-                        let observers = {
-                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                            list.clone()
-                        };
-                        for obs in observers.iter() {
-                            obs.created(self).await?;
-                        }
+                    for obs in &observers {
+                        obs.created(self).await?;
                     }
                 } else {
-                    {
-                        let observers = {
-                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                            list.clone()
-                        };
-                        for obs in observers.iter() {
-                            obs.updating(self).await?;
-                        }
+                    for obs in &observers {
+                        obs.updating(self).await?;
                     }
                     use rullst_orm::sqlx::query_builder::QueryBuilder;
                     use rullst_orm::sqlx::Execute;
@@ -502,24 +491,12 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                         .bind(self.id)
                         .execute(executor)
                         .await?;
-                    {
-                        let observers = {
-                            let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                            list.clone()
-                        };
-                        for obs in observers.iter() {
-                            obs.updated(self).await?;
-                        }
+                    for obs in &observers {
+                        obs.updated(self).await?;
                     }
                 }
-                {
-                    let observers = {
-                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                        list.clone()
-                    };
-                    for obs in observers.iter() {
-                        obs.saved(self).await?;
-                    }
+                for obs in &observers {
+                    obs.saved(self).await?;
                 }
                 #[cfg(feature = "redis")]
                 {
@@ -564,28 +541,21 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
             where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 #hook_before_delete
-                {
-                    let observers = {
-                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                        list.clone()
-                    };
-                    for obs in observers.iter() {
-                        obs.deleting(self).await?;
-                    }
+                // Acquire observer list once per delete operation.
+                let observers = {
+                    let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
+                    list.clone()
+                };
+                for obs in &observers {
+                    obs.deleting(self).await?;
                 }
                 #delete_logic
                 if rullst_orm::schema::is_query_log_enabled() {
                     println!("[SQL Debug] {:?} | ID: {}", query, self.id);
                 }
                 rullst_orm::sqlx::query(rullst_orm::sqlx::AssertSqlSafe(query.as_str())).bind(self.id).execute(executor).await?;
-                {
-                    let observers = {
-                        let list = Self::observers().read().expect("Failed to acquire read lock on observers - possible poisoning");
-                        list.clone()
-                    };
-                    for obs in observers.iter() {
-                        obs.deleted(self).await?;
-                    }
+                for obs in &observers {
+                    obs.deleted(self).await?;
                 }
                 #[cfg(feature = "redis")]
                 {

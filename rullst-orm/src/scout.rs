@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use serde_json::Value;
 use std::sync::OnceLock;
 
@@ -17,4 +17,34 @@ pub fn set_search_engine(engine: Box<dyn SearchEngine>) {
 
 pub fn get_search_engine() -> Option<&'static dyn SearchEngine> {
     SEARCH_ENGINE.get().map(|e| &**e)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_search_engine_none_before_set() {
+        // In a fresh process (or when set_search_engine has not been called),
+        // get_search_engine returns None. Because OnceLock ignores subsequent
+        // writes, we can only reliably assert the Option shape here.
+        // If another test in this suite already called set_search_engine the
+        // result will be Some — both branches are valid at runtime.
+        let _ = get_search_engine(); // must not panic
+    }
+
+    #[test]
+    fn test_set_search_engine_is_idempotent() {
+        // A second set_search_engine call is silently ignored by OnceLock.
+        // This test verifies that calling it multiple times does not panic.
+        struct Noop;
+        #[async_trait::async_trait]
+        impl SearchEngine for Noop {
+            async fn update(&self, _: &str, _: i32, _: serde_json::Value) -> Result<(), sqlx::Error> { Ok(()) }
+            async fn delete(&self, _: &str, _: i32) -> Result<(), sqlx::Error> { Ok(()) }
+            async fn search(&self, _: &str, _: &str) -> Result<Vec<i32>, sqlx::Error> { Ok(vec![]) }
+        }
+        set_search_engine(Box::new(Noop));
+        set_search_engine(Box::new(Noop)); // second call must not panic
+    }
 }

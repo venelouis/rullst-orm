@@ -1,4 +1,4 @@
-﻿use crate::parser::ParsedModel;
+use crate::parser::ParsedModel;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -200,16 +200,34 @@ pub fn generate(
             }
 
             pub fn join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
+                rullst_orm::schema::validate_identifier(table)
+                    .unwrap_or_else(|e| panic!("join() — invalid table identifier: {}", e));
+                rullst_orm::schema::validate_identifier(first)
+                    .unwrap_or_else(|e| panic!("join() — invalid column identifier for `first`: {}", e));
+                rullst_orm::schema::validate_identifier(second)
+                    .unwrap_or_else(|e| panic!("join() — invalid column identifier for `second`: {}", e));
                 self.joins.push(format!("INNER JOIN {} ON {} {} {}", table, first, operator, second));
                 self
             }
 
             pub fn left_join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
+                rullst_orm::schema::validate_identifier(table)
+                    .unwrap_or_else(|e| panic!("left_join() — invalid table identifier: {}", e));
+                rullst_orm::schema::validate_identifier(first)
+                    .unwrap_or_else(|e| panic!("left_join() — invalid column identifier for `first`: {}", e));
+                rullst_orm::schema::validate_identifier(second)
+                    .unwrap_or_else(|e| panic!("left_join() — invalid column identifier for `second`: {}", e));
                 self.joins.push(format!("LEFT JOIN {} ON {} {} {}", table, first, operator, second));
                 self
             }
 
             pub fn right_join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
+                rullst_orm::schema::validate_identifier(table)
+                    .unwrap_or_else(|e| panic!("right_join() — invalid table identifier: {}", e));
+                rullst_orm::schema::validate_identifier(first)
+                    .unwrap_or_else(|e| panic!("right_join() — invalid column identifier for `first`: {}", e));
+                rullst_orm::schema::validate_identifier(second)
+                    .unwrap_or_else(|e| panic!("right_join() — invalid column identifier for `second`: {}", e));
                 self.joins.push(format!("RIGHT JOIN {} ON {} {} {}", table, first, operator, second));
                 self
             }
@@ -318,7 +336,16 @@ pub fn generate(
                 self
             }
 
+            /// Adds a WHERE condition comparing two columns.
+            ///
+            /// # Panics
+            /// Panics if `first` or `second` are not valid SQL identifiers.
+            /// Column names must always be hardcoded — never pass user input here.
             pub fn where_column(mut self, first: &str, second: &str) -> Self {
+                rullst_orm::schema::validate_identifier(first)
+                    .unwrap_or_else(|e| panic!("where_column() — invalid identifier for `first`: {}", e));
+                rullst_orm::schema::validate_identifier(second)
+                    .unwrap_or_else(|e| panic!("where_column() — invalid identifier for `second`: {}", e));
                 self.wheres.push(("AND".to_string(), format!("{} = {}", first, second)));
                 self
             }
@@ -384,12 +411,26 @@ pub fn generate(
                 self
             }
 
+            /// Orders results by a column name ascending.
+            ///
+            /// # Panics
+            /// Panics if `column` is not a valid SQL identifier.
+            /// Column names must always be hardcoded — never pass user input here.
             pub fn order_by(mut self, column: &str) -> Self {
+                rullst_orm::schema::validate_identifier(column)
+                    .unwrap_or_else(|e| panic!("order_by() — invalid column identifier: {}", e));
                 self.order_by = Some(format!("{} ASC", column));
                 self
             }
 
+            /// Orders results by a column name descending.
+            ///
+            /// # Panics
+            /// Panics if `column` is not a valid SQL identifier.
+            /// Column names must always be hardcoded — never pass user input here.
             pub fn order_by_desc(mut self, column: &str) -> Self {
+                rullst_orm::schema::validate_identifier(column)
+                    .unwrap_or_else(|e| panic!("order_by_desc() — invalid column identifier: {}", e));
                 self.order_by = Some(format!("{} DESC", column));
                 self
             }
