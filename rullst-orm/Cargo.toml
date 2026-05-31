@@ -2,7 +2,7 @@
 name = "rullst-orm"
 version = "3.0.0"
 edition = "2024"
-description = "An Active Record ORM for Rust, inspired by Laravel's Orm."
+description = "An Active Record ORM for Rust."
 license = "MIT"
 repository = "https://github.com/venelouis/rullst-orm"
 keywords = ["orm", "database", "sqlx", "orm", "active-record"]
@@ -10,14 +10,14 @@ categories = ["database"]
 readme = "../README.md"
 
 [dependencies]
-rullst-orm-macros = { path = "../rullst-orm-macros", version = "3.0.0" }
+rullst-orm-macros = { path = "../rullst-orm-macros", version = "3" }
 sqlx = { version = "0.9", features = ["sqlite", "postgres", "mysql", "any", "runtime-tokio", "macros", "json"] }
-tokio = { version = "1.52", features = ["full"] }
-async-trait = "0.1.89"
-futures = "0.3.32"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
-redis = { version = "1.2", features = ["tokio-comp", "connection-manager"], optional = true }
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+redis = { version = "1", features = ["tokio-comp", "connection-manager"], optional = true }
 rand = "0.10"
 
 [features]
@@ -29,4 +29,4 @@ strict-sqlite = []
 
 [dev-dependencies]
 rand = "0.10"
-axum = "0.8.9"
+axum = "0.8"
