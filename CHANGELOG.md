@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.2-1] - 2026-05-31
+## [3.0.3-1] - 2026-05-31
 
 ### Security (SQL Injection Corrections)
 - **Scout Search Parameterization:** Completely removed SQL interpolation from the generated `search()` macro method. Replaced it with native, driver-aware parametrized LIKE logic (`CAST(col AS type) LIKE ?`) binding the query values dynamically.
