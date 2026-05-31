@@ -211,6 +211,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
         let foreign_key = &rel.foreign_key;
         let local_key = &rel.local_key;
         let related_key = &rel.related_key;
+        let morph_name = &rel.morph_name;
 
         let load_flag = quote::format_ident!("load_{}", field_name);
         let filter_flag = quote::format_ident!("filter_{}", field_name);
