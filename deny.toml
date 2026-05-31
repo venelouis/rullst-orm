@@ -1,0 +1,7 @@
+# Minimal cargo-deny configuration. Customize as needed.
+
+[advisories]
+# By default cargo-deny will report advisories found in the advisory DB.
+
+[sources]
+# You can configure alternate advisory sources here.

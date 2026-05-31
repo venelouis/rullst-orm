@@ -1,0 +1,52 @@
+name: Scheduled Security Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # every Monday at 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install cargo-audit
+        run: cargo install --locked cargo-audit || true
+
+      - name: Run cargo audit and save JSON
+        run: cargo audit --json > cargo_audit.json || true
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny || true
+
+      - name: Run cargo-deny advisories and save JSON
+        run: cargo deny check advisories --json > cargo_deny.json || true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            cargo_audit.json
+            cargo_deny.json
+
+      - name: Fail if vulnerabilities found
+        if: always()
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq || true
+          if [ -f cargo_audit.json ] && [ "$(jq -r '.vulnerabilities.found' cargo_audit.json 2>/dev/null)" = "true" ]; then
+            echo "cargo-audit found vulnerabilities"; cat cargo_audit.json; exit 1
+          fi
+          if [ -f cargo_deny.json ]; then
+            count=$(jq -r '.advisories | length' cargo_deny.json 2>/dev/null || echo 0)
+            if [ "$count" -gt 0 ]; then
+              echo "cargo-deny found advisories"; cat cargo_deny.json; exit 1
+            fi
+          fi
