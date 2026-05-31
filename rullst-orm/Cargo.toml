@@ -29,4 +29,4 @@ strict-sqlite = []
 
 [dev-dependencies]
 rand = "0.10"
-axum = "0.7.5"
+axum = "0.8.9"
