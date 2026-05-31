@@ -28,11 +28,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // (Assuming a local Redis server is running on 127.0.0.1:6379)
     let redis_url = "redis://127.0.0.1:6379";
     println!("Connecting to Redis at {}...", redis_url);
-    
+
     #[cfg(feature = "redis")]
     {
         if let Err(e) = Orm::init_redis(redis_url).await {
-            println!("⚠️ Could not connect to Redis: {}. Skipping Redis caching and Pub/Sub event demo.", e);
+            println!(
+                "⚠️ Could not connect to Redis: {}. Skipping Redis caching and Pub/Sub event demo.",
+                e
+            );
             let _ = std::fs::remove_file("products_demo.db");
             return Ok(());
         }
@@ -44,12 +47,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(mut conn) = client.get_connection() {
                 let mut pubsub = conn.as_pubsub();
                 let _ = pubsub.psubscribe("orm:events:products:*");
-                println!("📡 Background Subscriber: Listening for products Pub/Sub events on Redis...");
+                println!(
+                    "📡 Background Subscriber: Listening for products Pub/Sub events on Redis..."
+                );
                 loop {
                     if let Ok(msg) = pubsub.get_message() {
                         let channel: String = msg.get_channel_name().to_string();
                         let payload: String = msg.get_payload().unwrap_or_default();
-                        println!("🔔 [Pub/Sub Event] Received event on channel '{}': {}", channel, payload);
+                        println!(
+                            "🔔 [Pub/Sub Event] Received event on channel '{}': {}",
+                            channel, payload
+                        );
                     }
                     tokio::time::sleep(Duration::from_millis(50)).await;
                 }
@@ -60,7 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // 4. Save a new product (Routes to DB + Publishes created and saved events to Redis!)
         println!("\n📥 Saving a new product to database...");
-        let mut p = Product { id: 0, name: "Super Quantum Laptop".to_string(), price: 2499.99 };
+        let mut p = Product {
+            id: 0,
+            name: "Super Quantum Laptop".to_string(),
+            price: 2499.99,
+        };
         p.save().await?;
         println!("✅ Product saved with ID: {}", p.id);
 
@@ -70,11 +82,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Orm::enable_query_log();
 
         // 5. Caching: fetch with .remember(10) (10 seconds cache TTL)
-        println!("\n🔍 Fetching product for the FIRST time (should hit SQL database and cache in Redis):");
+        println!(
+            "\n🔍 Fetching product for the FIRST time (should hit SQL database and cache in Redis):"
+        );
         let p_db = Product::query().where_id(p.id).remember(10).first().await?;
         println!("Fetched product: {:?}", p_db);
 
-        println!("\n⚡ Fetching product for the SECOND time (should hit cache instantly, no SQL log!):");
+        println!(
+            "\n⚡ Fetching product for the SECOND time (should hit cache instantly, no SQL log!):"
+        );
         let p_cached = Product::query().where_id(p.id).remember(10).first().await?;
         println!("Fetched from cache: {:?}", p_cached);
 

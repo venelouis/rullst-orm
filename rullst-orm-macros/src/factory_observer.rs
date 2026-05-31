@@ -1,6 +1,6 @@
-use quote::quote;
-use proc_macro2::TokenStream;
 use crate::parser::ParsedModel;
+use proc_macro2::TokenStream;
+use quote::quote;
 
 pub fn generate(parsed: &ParsedModel) -> TokenStream {
     let name = &parsed.name;
@@ -35,7 +35,7 @@ pub fn generate(parsed: &ParsedModel) -> TokenStream {
                 }
                 Ok(results)
             }
-            
+
             pub fn make(&self) -> Vec<#name> {
                 let mut results = vec![];
                 for _ in 0..self.count {

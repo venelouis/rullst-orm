@@ -5,12 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.13] - 2026-05-29
+## [3.0.0] - 2026-05-30
+
+### Changed
+- **Rebranding API:** Breaking change. All `EloquentModel`, `EloquentValue`, `EloquentDatabase` references internally and externally are refactored to `RullstModel`, `RullstValue`, etc., fully unifying the crate's naming convention with the new `rullst-orm` name.
+- Updated `#[eloquent(...)]` helper macro to `#[rullst(...)]`.
 
 ### Added
+- **Native Multi-Tenancy**: Added a frictionless SaaS multi-tenancy system powered by `tokio::task_local!`. Wrapping a block in `with_tenant("id", ...)` automatically scopes all `SELECT`, `UPDATE`, `DELETE` queries to that tenant, and magically populates `tenant_id` on new `INSERT` models. Enabled via `#[orm(tenant_column = "tenant_id")]`.
+- **Audit Trails (Diff Tracking)**: Added an automatic revision history feature. Simply flag a struct with `#[orm(auditable)]`, and the ORM will intercept updates and deletes, diff the JSON state of the row, and log the exact `old_values` and `new_values` into a centralized `rullst_audits` history table.
+- **Built-in Full-Text Search (Scout)**: Implemented `.search("query")` method and `SearchEngine` trait. Automatically syncs models with external engines (like Meilisearch) upon saving, or falls back to robust, driver-aware native SQL `LIKE` queries out-of-the-box.
+- **Rullst ORM Admin Panel**: Delivered a drop-in HTML dashboard endpoint (`rullst_orm::admin::dashboard_html()`). It generates a beautiful, rich dark-mode web dashboard that developers can serve natively via `axum`, `actix`, or any web framework, zeroing the cost of a traditional backend UI.
+- **API Resources & Transformers**: Added Laravel-style `ApiResource` trait and `.collection_resource()` mapping. Effortlessly filter and map model properties, preventing sensitive data leaks in JSON API endpoints.
+- **SQLite ID Hydration Fix**: Addressed a severe SQLx limitation by forcing SQLite to utilize `RETURNING id` during model creation, bypassing `AnyPool`'s inability to return `last_insert_rowid()`.
 - **Release Automation:** Integrated GitHub Actions CI/CD for automated Crates.io publishing triggered by `v*` Git tags.
 - **Security Audits in CI:** Added `cargo audit` to the `ci.yml` pipeline to automatically block PRs with vulnerable dependencies.
-- **Unit Tests:** Added full test coverage for `enable_query_log`, `validate_table_name`, `JoinClause`, `EloquentValue`, and string manipulation edge cases.
+- **Unit Tests:** Added full test coverage for `enable_query_log`, `validate_table_name`, `JoinClause`, `RullstValue`, and string manipulation edge cases.
 - **Strict SQL Typing Architecture:** Complete integration of Cargo feature flags (`strict-postgres`, `strict-mysql`, `strict-sqlite`) to optionally enforce `sqlx` compile-time type verification instead of using `AnyPool`.
 - Custom `QueryResultExt` wrapper added to dynamically handle `last_insert_id()` logic across strict drivers.
 - **v2.0 Roadmap:** Updated `docs/v2_roadmap.md` with the strategy to use feature flags for Strict Typing and iterative implementation for the Zero-Copy Builder.

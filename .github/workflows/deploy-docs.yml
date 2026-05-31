@@ -1,0 +1,25 @@
+name: Deploy Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+# Required for peaceiris/actions-gh-pages to push to gh-pages branch
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy docs/dist to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/dist
+          publish_branch: gh-pages

@@ -338,14 +338,14 @@ Well-implemented advanced features:
 
 ### 6.2 Medium: Lack of Strong Typing
 
-**Problem:** Use of dynamic `EloquentValue` enum
+**Problem:** Use of dynamic `RullstValue` enum
 
 **Location:** `rullst-orm/src/lib.rs:46-53`
 
 ```rust
 // ⚠️ Dynamic enum loses Rust type safety
 #[derive(Clone, Debug)]
-pub enum EloquentValue {
+pub enum RullstValue {
     String(String),
     Int(i32),
     Float(f64),
@@ -427,14 +427,14 @@ pub enum EloquentValue {
 
 6. **✅ Improve allocation performance** - COMPLETED in v1.1.5-1.1.7
 7. **✅ Improve error handling** - COMPLETED in v1.1.5-1.1.7
-8. **✅ Document design trade-offs** - PARTIAL (EloquentValue documented)
+8. **✅ Document design trade-offs** - PARTIAL (RullstValue documented)
 9. **⚠️ Consider deprecating where_raw APIs** - PENDING
 
 ### 🟢 Low Priority (Long Term)
 
 10. **✅ Improve macro maintainability** - COMPLETED in v1.1.5-1.1.7
 11. **⚠️ Consider Rust 2021 compatibility** - NOT POSSIBLE (requires Rust 2024 features)
-12. **⚠️ Improve EloquentValue type safety** - PENDING (architectural change)
+12. **⚠️ Improve RullstValue type safety** - PENDING (architectural change)
 
 ---
 

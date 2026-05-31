@@ -1,5 +1,5 @@
-use rullst_orm::{Orm, sqlx::FromRow, EloquentCollection};
-use rullst_orm::schema::{Schema, Blueprint};
+use rullst_orm::schema::{Blueprint, Schema};
+use rullst_orm::{Orm, RullstCollection, sqlx::FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "products")]
@@ -22,16 +22,37 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
         table.string("name").not_null();
         table.float("price").not_null();
         table.string("category").not_null();
-    }).await?;
+    })
+    .await?;
 
     // 2. Insert Test Data
-    let mut p1 = Product { id: 0, name: "Laptop".to_string(), price: 1200.50, category: "Tech".to_string() };
+    let mut p1 = Product {
+        id: 0,
+        name: "Laptop".to_string(),
+        price: 1200.50,
+        category: "Tech".to_string(),
+    };
     p1.save().await?;
-    let mut p2 = Product { id: 0, name: "Mouse".to_string(), price: 45.00, category: "Tech".to_string() };
+    let mut p2 = Product {
+        id: 0,
+        name: "Mouse".to_string(),
+        price: 45.00,
+        category: "Tech".to_string(),
+    };
     p2.save().await?;
-    let mut p3 = Product { id: 0, name: "Desk".to_string(), price: 250.00, category: "Furniture".to_string() };
+    let mut p3 = Product {
+        id: 0,
+        name: "Desk".to_string(),
+        price: 250.00,
+        category: "Furniture".to_string(),
+    };
     p3.save().await?;
-    let mut p4 = Product { id: 0, name: "Chair".to_string(), price: 150.00, category: "Furniture".to_string() };
+    let mut p4 = Product {
+        id: 0,
+        name: "Chair".to_string(),
+        price: 150.00,
+        category: "Furniture".to_string(),
+    };
     p4.save().await?;
 
     // 3. Fetch all records using Orm (Returns a standard Vec<Product>)
@@ -49,13 +70,20 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // 3. max_by_key()
     let most_expensive = collection.max_by_key(|p| (p.price * 100.0) as i64).unwrap(); // Cast float to sortable integer for Ord
-    println!("3. Most Expensive Item: {} (${:.2})", most_expensive.name, most_expensive.price);
+    println!(
+        "3. Most Expensive Item: {} (${:.2})",
+        most_expensive.name, most_expensive.price
+    );
 
     // 4. chunk()
     let chunks = collection.clone().chunk(2);
     println!("4. Chunks of 2:");
     for (i, chunk) in chunks.iter().enumerate() {
-        println!("   Chunk {}: {:?}", i + 1, chunk.iter().map(|p| p.name.clone()).collect::<Vec<_>>());
+        println!(
+            "   Chunk {}: {:?}",
+            i + 1,
+            chunk.iter().map(|p| p.name.clone()).collect::<Vec<_>>()
+        );
     }
 
     // 5. key_by()

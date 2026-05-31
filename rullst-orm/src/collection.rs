@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 /// An extension trait that brings Laravel-style Collection methods natively to Rust's Vec<T>.
-pub trait EloquentCollection<T> {
+pub trait RullstCollection<T> {
     /// Keys the collection by the given closure's return value
     fn key_by<K, F>(self, f: F) -> HashMap<K, T>
     where
@@ -34,9 +34,14 @@ pub trait EloquentCollection<T> {
     where
         F: Fn(&T) -> K,
         K: Ord;
+
+    /// Serializes the entire collection using an ApiResource transformer
+    fn collection_resource(&self) -> serde_json::Value
+    where
+        T: crate::resource::ApiResource;
 }
 
-impl<T> EloquentCollection<T> for Vec<T> {
+impl<T> RullstCollection<T> for Vec<T> {
     fn key_by<K, F>(self, f: F) -> HashMap<K, T>
     where
         F: Fn(&T) -> K,
@@ -110,5 +115,12 @@ impl<T> EloquentCollection<T> for Vec<T> {
         K: Ord,
     {
         self.iter().min_by_key(|item| f(*item))
+    }
+
+    fn collection_resource(&self) -> serde_json::Value
+    where
+        T: crate::resource::ApiResource,
+    {
+        crate::resource::ResourceCollection::new(self).resolve()
     }
 }

@@ -79,12 +79,16 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Orm::init("sqlite://test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query("
+    rullst_orm::sqlx::query(
+        "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
         );
-    ").execute(pool).await?;
+    ",
+    )
+    .execute(pool)
+    .await?;
 
     // 1. Register the Observer
     println!("Registering UserObserverImpl...");
@@ -92,7 +96,10 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // 2. Perform Insert (Saving + Creating + Created + Saved should trigger)
     println!("\n--- Performing INSERT ---");
-    let mut u = User { id: 0, name: "Observer User".to_string() };
+    let mut u = User {
+        id: 0,
+        name: "Observer User".to_string(),
+    };
     u.save().await?;
 
     // Retrieve saved user for update

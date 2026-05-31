@@ -1,21 +1,40 @@
-use syn::{Data, DeriveInput, Fields, spanned::Spanned};
+use syn::{spanned::Spanned, Data, DeriveInput, Fields};
 
 /// Validates that a relation attribute has valid syntax
-fn validate_relation_attribute(key: &str, value: &str, span: proc_macro2::Span) -> Result<(), syn::Error> {
+fn validate_relation_attribute(
+    key: &str,
+    value: &str,
+    span: proc_macro2::Span,
+) -> Result<(), syn::Error> {
     match key {
         "has_many" | "has_one" | "belongs_to" | "belongs_to_many" | "morph_many" | "morph_one" => {
             if value.is_empty() {
-                return Err(syn::Error::new(span, format!("{} requires a model name", key)));
+                return Err(syn::Error::new(
+                    span,
+                    format!("{} requires a model name", key),
+                ));
             }
             // Check if value looks like a valid Rust identifier
-            if !value.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                return Err(syn::Error::new(span, format!("{} model name should start with uppercase (PascalCase)", key)));
+            if !value
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false)
+            {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "{} model name should start with uppercase (PascalCase)",
+                        key
+                    ),
+                ));
             }
         }
         "foreign_key" | "related_key" | "pivot_table" | "local_key" | "name"
-            if value.is_empty() => {
-                return Err(syn::Error::new(span, format!("{} requires a value", key)));
-            }
+            if value.is_empty() =>
+        {
+            return Err(syn::Error::new(span, format!("{} requires a value", key)));
+        }
         _ => {}
     }
     Ok(())
@@ -25,12 +44,15 @@ pub struct ParsedModel {
     pub name: syn::Ident,
     pub table_name: String,
     pub global_scope: String,
+    pub tenant_column: String,
+    pub auditable: bool,
+    pub searchable: bool,
     pub before_save: String,
     pub after_save: String,
     pub before_delete: String,
     pub after_delete: String,
     pub after_fetch: String,
-    
+
     pub normal_fields: Vec<syn::Ident>,
     pub hidden_fields: Vec<syn::Ident>,
     pub relations: Vec<ParsedRelation>,
@@ -52,6 +74,9 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let name = input.ident.clone();
     let mut table_name = format!("{}s", name.to_string().to_lowercase());
     let mut global_scope = String::new();
+    let mut tenant_column = String::new();
+    let mut auditable = false;
+    let mut searchable = false;
     let mut before_save = String::new();
     let mut after_save = String::new();
     let mut before_delete = String::new();
@@ -65,19 +90,27 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
                 Err(_) => continue, // Skip malformed attributes
             };
             for part in token_str.split(',') {
-                let parts: Vec<&str> = part.split('=').collect();
-                if parts.len() == 2 {
-                    let key = parts[0].trim();
-                    let val = parts[1].trim().trim_matches('"');
-                    match key {
-                        "table" => table_name = val.to_string(),
-                        "global_scope" => global_scope = val.to_string(),
-                        "before_save" => before_save = val.to_string(),
-                        "after_save" => after_save = val.to_string(),
-                        "before_delete" => before_delete = val.to_string(),
-                        "after_delete" => after_delete = val.to_string(),
-                        "after_fetch" => after_fetch = val.to_string(),
-                        _ => {}
+                let trimmed = part.trim();
+                if trimmed == "auditable" {
+                    auditable = true;
+                } else if trimmed == "searchable" {
+                    searchable = true;
+                } else {
+                    let parts: Vec<&str> = trimmed.split('=').collect();
+                    if parts.len() == 2 {
+                        let key = parts[0].trim();
+                        let val = parts[1].trim().trim_matches('"');
+                        match key {
+                            "table" => table_name = val.to_string(),
+                            "global_scope" => global_scope = val.to_string(),
+                            "tenant_column" => tenant_column = val.to_string(),
+                            "before_save" => before_save = val.to_string(),
+                            "after_save" => after_save = val.to_string(),
+                            "before_delete" => before_delete = val.to_string(),
+                            "after_delete" => after_delete = val.to_string(),
+                            "after_fetch" => after_fetch = val.to_string(),
+                            _ => {}
+                        }
                     }
                 }
             }
@@ -103,8 +136,10 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
             None => continue, // Skip fields without identifiers
         };
         let field_name_str = field_name.to_string();
-        if field_name_str == "deleted_at" { has_soft_deletes = true; }
-        
+        if field_name_str == "deleted_at" {
+            has_soft_deletes = true;
+        }
+
         let mut is_relation = false;
         let mut rel_type = String::new();
         let mut rel_model = String::new();
@@ -133,12 +168,36 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
                             // Validate relation attributes
                             validate_relation_attribute(key, val, field.span())?;
                             match key {
-                                "has_many" => { is_relation = true; rel_type = "has_many".to_string(); rel_model = val.to_string(); }
-                                "has_one" => { is_relation = true; rel_type = "has_one".to_string(); rel_model = val.to_string(); }
-                                "belongs_to" => { is_relation = true; rel_type = "belongs_to".to_string(); rel_model = val.to_string(); }
-                                "belongs_to_many" => { is_relation = true; rel_type = "belongs_to_many".to_string(); rel_model = val.to_string(); }
-                                "morph_many" => { is_relation = true; rel_type = "morph_many".to_string(); rel_model = val.to_string(); }
-                                "morph_one" => { is_relation = true; rel_type = "morph_one".to_string(); rel_model = val.to_string(); }
+                                "has_many" => {
+                                    is_relation = true;
+                                    rel_type = "has_many".to_string();
+                                    rel_model = val.to_string();
+                                }
+                                "has_one" => {
+                                    is_relation = true;
+                                    rel_type = "has_one".to_string();
+                                    rel_model = val.to_string();
+                                }
+                                "belongs_to" => {
+                                    is_relation = true;
+                                    rel_type = "belongs_to".to_string();
+                                    rel_model = val.to_string();
+                                }
+                                "belongs_to_many" => {
+                                    is_relation = true;
+                                    rel_type = "belongs_to_many".to_string();
+                                    rel_model = val.to_string();
+                                }
+                                "morph_many" => {
+                                    is_relation = true;
+                                    rel_type = "morph_many".to_string();
+                                    rel_model = val.to_string();
+                                }
+                                "morph_one" => {
+                                    is_relation = true;
+                                    rel_type = "morph_one".to_string();
+                                    rel_model = val.to_string();
+                                }
                                 "foreign_key" => foreign_key = val.to_string(),
                                 "related_key" => related_key = val.to_string(),
                                 "pivot_table" => pivot_table = val.to_string(),
@@ -175,6 +234,9 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
         name,
         table_name,
         global_scope,
+        tenant_column,
+        auditable,
+        searchable,
         before_save,
         after_save,
         before_delete,

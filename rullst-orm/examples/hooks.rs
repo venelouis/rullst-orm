@@ -1,7 +1,11 @@
 use rullst_orm::{Orm, sqlx::FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
-#[orm(table = "users", before_save = "hash_password", after_fetch = "format_name")]
+#[orm(
+    table = "users",
+    before_save = "hash_password",
+    after_fetch = "format_name"
+)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -12,10 +16,11 @@ impl User {
     // Mutator / Before Save Event
     pub async fn hash_password(&mut self) -> Result<(), rullst_orm::sqlx::Error> {
         if let Some(pwd) = &self.password
-            && !pwd.starts_with("hashed_") {
-                self.password = Some(format!("hashed_{}", pwd));
-                println!("[Hook: before_save] Password has been hashed!");
-            }
+            && !pwd.starts_with("hashed_")
+        {
+            self.password = Some(format!("hashed_{}", pwd));
+            println!("[Hook: before_save] Password has been hashed!");
+        }
         Ok(())
     }
 
@@ -34,13 +39,17 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Orm::init("sqlite://hooks_test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query("
+    rullst_orm::sqlx::query(
+        "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             password TEXT
         );
-    ").execute(pool).await?;
+    ",
+    )
+    .execute(pool)
+    .await?;
 
     // Create user
     let mut user = User {

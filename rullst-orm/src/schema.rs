@@ -3,7 +3,10 @@ use sqlx::Error;
 /// Validates a table name to prevent SQL injection
 /// Only allows alphanumeric characters, underscores, and hyphens
 fn validate_table_name(table_name: &str) -> Result<(), Error> {
-    if !table_name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+    if !table_name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    {
         return Err(Error::Protocol(format!(
             "Invalid table name '{}': only alphanumeric characters, underscores, and hyphens are allowed",
             table_name
@@ -81,38 +84,48 @@ impl Blueprint {
             is_auto_increment: true,
             default_value: None,
         });
-        self.columns.last_mut().expect("BUG: columns is empty after push")
+        self.columns
+            .last_mut()
+            .expect("BUG: columns is empty after push")
     }
 
     pub fn string(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "TEXT");
         self.columns.push(col);
-        self.columns.last_mut().expect("BUG: columns is empty after push")
+        self.columns
+            .last_mut()
+            .expect("BUG: columns is empty after push")
     }
 
     pub fn integer(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "INTEGER");
         self.columns.push(col);
-        self.columns.last_mut().expect("BUG: columns is empty after push")
+        self.columns
+            .last_mut()
+            .expect("BUG: columns is empty after push")
     }
 
     pub fn float(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "REAL");
         self.columns.push(col);
-        self.columns.last_mut().expect("BUG: columns is empty after push")
+        self.columns
+            .last_mut()
+            .expect("BUG: columns is empty after push")
     }
 
     pub fn boolean(&mut self, name: &str) -> &mut Column {
         let col = Column::new(name, "INTEGER");
         self.columns.push(col);
-        self.columns.last_mut().expect("BUG: columns is empty after push")
+        self.columns
+            .last_mut()
+            .expect("BUG: columns is empty after push")
     }
 
     pub fn timestamps(&mut self) {
         let mut created = Column::new("created_at", "TEXT");
         created.default("CURRENT_TIMESTAMP");
         self.columns.push(created);
-        
+
         let mut updated = Column::new("updated_at", "TEXT");
         updated.default("CURRENT_TIMESTAMP");
         self.columns.push(updated);
@@ -121,9 +134,12 @@ impl Blueprint {
     pub fn soft_deletes(&mut self) {
         let col = Column::new("deleted_at", "TEXT");
         self.columns.push(col);
-        self.columns.last_mut().expect("BUG: columns is empty after push").nullable();
+        self.columns
+            .last_mut()
+            .expect("BUG: columns is empty after push")
+            .nullable();
     }
-    
+
     pub fn build(&self) -> String {
         let mut defs = vec![];
         for col in &self.columns {
@@ -154,24 +170,27 @@ impl Schema {
         F: FnOnce(&mut Blueprint),
     {
         validate_table_name(table_name)?;
-        
+
         let mut blueprint = Blueprint::new();
         callback(&mut blueprint);
-        
+
         let columns_sql = blueprint.build();
-        let sql = format!("CREATE TABLE IF NOT EXISTS {} (\n    {}\n);", table_name, columns_sql);
-        
+        let sql = format!(
+            "CREATE TABLE IF NOT EXISTS {} (\n    {}\n);",
+            table_name, columns_sql
+        );
+
         let pool = crate::Orm::pool();
         let mut query_builder = sqlx::query_builder::QueryBuilder::new("");
         query_builder.push(&sql);
         query_builder.build().execute(pool).await?;
-        
+
         Ok(())
     }
-    
+
     pub async fn drop_if_exists(table_name: &str) -> Result<(), Error> {
         validate_table_name(table_name)?;
-        
+
         let sql = format!("DROP TABLE IF EXISTS {};", table_name);
         let pool = crate::Orm::pool();
         let mut query_builder = sqlx::query_builder::QueryBuilder::new("");
@@ -191,7 +210,7 @@ pub trait Migration: Send + Sync {
 pub async fn run_artisan_with_args(
     args: &[String],
     migrations: Vec<Box<dyn Migration>>,
-    seeders: Vec<Box<dyn crate::Seeder>>
+    seeders: Vec<Box<dyn crate::Seeder>>,
 ) -> Result<(), Error> {
     if args.len() < 2 {
         println!("Rullst ORM Artisan CLI");
@@ -237,7 +256,7 @@ pub async fn run_artisan_with_args(
 
 pub async fn run_artisan(
     migrations: Vec<Box<dyn Migration>>,
-    seeders: Vec<Box<dyn crate::Seeder>>
+    seeders: Vec<Box<dyn crate::Seeder>>,
 ) -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
     run_artisan_with_args(&args, migrations, seeders).await
@@ -249,12 +268,14 @@ async fn status_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Er
 
     let table_exists = match driver {
         "postgres" | "mysql" => {
-            let query_str = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'migrations'";
+            let query_str =
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'migrations'";
             let row: (i64,) = sqlx::query_as(query_str).fetch_one(pool).await?;
             row.0 > 0
         }
         _ => {
-            let query_str = "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='migrations'";
+            let query_str =
+                "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='migrations'";
             let row: (i64,) = sqlx::query_as(query_str).fetch_one(pool).await?;
             row.0 > 0
         }
@@ -264,7 +285,10 @@ async fn status_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Er
         let executed: Vec<(String,)> = sqlx::query_as("SELECT migration FROM migrations")
             .fetch_all(pool)
             .await?;
-        executed.into_iter().map(|(m,)| m).collect::<std::collections::HashSet<String>>()
+        executed
+            .into_iter()
+            .map(|(m,)| m)
+            .collect::<std::collections::HashSet<String>>()
     } else {
         std::collections::HashSet::new()
     };
@@ -289,7 +313,7 @@ async fn status_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Er
 fn create_migration_files(name: &str) -> Result<(), Error> {
     validate_table_name(name)?;
     use std::fs;
-    
+
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("System time went backwards")
@@ -297,14 +321,13 @@ fn create_migration_files(name: &str) -> Result<(), Error> {
         .to_string();
     let snake_name = name.to_lowercase().replace("-", "_");
     let file_name = format!("m{}_{}", now, snake_name);
-    
-    fs::create_dir_all("src/migrations").map_err(|e| {
-        Error::Protocol(format!("Failed to create migrations directory: {}", e))
-    })?;
+
+    fs::create_dir_all("src/migrations")
+        .map_err(|e| Error::Protocol(format!("Failed to create migrations directory: {}", e)))?;
 
     let new_file_path = format!("src/migrations/{}.rs", file_name);
     let migration_code = format!(
-r#"use rullst_orm::schema::{{Schema, Blueprint, Migration}};
+        r#"use rullst_orm::schema::{{Schema, Blueprint, Migration}};
 use rullst_orm::async_trait;
 
 pub struct MigrationImpl;
@@ -331,9 +354,8 @@ impl Migration for MigrationImpl {{
         name = snake_name
     );
 
-    fs::write(&new_file_path, migration_code).map_err(|e| {
-        Error::Protocol(format!("Failed to write migration file: {}", e))
-    })?;
+    fs::write(&new_file_path, migration_code)
+        .map_err(|e| Error::Protocol(format!("Failed to write migration file: {}", e)))?;
     println!("Created migration file: {}", new_file_path);
 
     regenerate_migrations_mod()?;
@@ -343,21 +365,21 @@ impl Migration for MigrationImpl {{
 
 fn regenerate_migrations_mod() -> Result<(), Error> {
     use std::fs;
-    let paths = fs::read_dir("src/migrations").map_err(|e| {
-        Error::Protocol(format!("Failed to read migrations dir: {}", e))
-    })?;
+    let paths = fs::read_dir("src/migrations")
+        .map_err(|e| Error::Protocol(format!("Failed to read migrations dir: {}", e)))?;
 
     let mut modules = vec![];
     for path in paths {
         let path = path.map_err(|e| Error::Protocol(e.to_string()))?.path();
         if let Some(ext) = path.extension()
             && ext == "rs"
-                && let Some(stem) = path.file_stem() {
-                    let stem_str = stem.to_string_lossy().to_string();
-                    if stem_str != "mod" && stem_str.starts_with('m') {
-                        modules.push(stem_str);
-                    }
-                }
+            && let Some(stem) = path.file_stem()
+        {
+            let stem_str = stem.to_string_lossy().to_string();
+            if stem_str != "mod" && stem_str.starts_with('m') {
+                modules.push(stem_str);
+            }
+        }
     }
     modules.sort();
 
@@ -366,7 +388,8 @@ fn regenerate_migrations_mod() -> Result<(), Error> {
     for m in &modules {
         mod_content.push_str(&format!("pub mod {};\n", m));
     }
-    mod_content.push_str("\npub fn get_migrations() -> Vec<Box<dyn rullst_orm::schema::Migration>> {\n");
+    mod_content
+        .push_str("\npub fn get_migrations() -> Vec<Box<dyn rullst_orm::schema::Migration>> {\n");
     mod_content.push_str("    vec![\n");
     for m in &modules {
         mod_content.push_str(&format!("        Box::new({}::MigrationImpl),\n", m));
@@ -374,9 +397,8 @@ fn regenerate_migrations_mod() -> Result<(), Error> {
     mod_content.push_str("    ]\n");
     mod_content.push_str("}\n");
 
-    fs::write("src/migrations/mod.rs", mod_content).map_err(|e| {
-        Error::Protocol(format!("Failed to write mod.rs: {}", e))
-    })?;
+    fs::write("src/migrations/mod.rs", mod_content)
+        .map_err(|e| Error::Protocol(format!("Failed to write mod.rs: {}", e)))?;
     println!("Regenerated src/migrations/mod.rs");
 
     Ok(())
@@ -415,7 +437,8 @@ async fn run_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Error
     let executed: Vec<(String,)> = sqlx::query_as("SELECT migration FROM migrations")
         .fetch_all(pool)
         .await?;
-    let executed_set: std::collections::HashSet<String> = executed.into_iter().map(|(m,)| m).collect();
+    let executed_set: std::collections::HashSet<String> =
+        executed.into_iter().map(|(m,)| m).collect();
 
     let batch_row: (Option<i32>,) = sqlx::query_as("SELECT MAX(batch) FROM migrations")
         .fetch_one(pool)
@@ -451,12 +474,14 @@ async fn rollback_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), 
 
     let table_exists = match driver {
         "postgres" | "mysql" => {
-            let query_str = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'migrations'";
+            let query_str =
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'migrations'";
             let row: (i64,) = sqlx::query_as(query_str).fetch_one(pool).await?;
             row.0 > 0
         }
         _ => {
-            let query_str = "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='migrations'";
+            let query_str =
+                "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name='migrations'";
             let row: (i64,) = sqlx::query_as(query_str).fetch_one(pool).await?;
             row.0 > 0
         }
@@ -470,7 +495,7 @@ async fn rollback_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), 
     let batch_row: (Option<i32>,) = sqlx::query_as("SELECT MAX(batch) FROM migrations")
         .fetch_one(pool)
         .await?;
-    
+
     let last_batch = match batch_row.0 {
         Some(b) if b > 0 => b,
         _ => {
@@ -479,10 +504,11 @@ async fn rollback_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), 
         }
     };
 
-    let to_rollback: Vec<(String,)> = sqlx::query_as("SELECT migration FROM migrations WHERE batch = ? ORDER BY id DESC")
-        .bind(last_batch)
-        .fetch_all(pool)
-        .await?;
+    let to_rollback: Vec<(String,)> =
+        sqlx::query_as("SELECT migration FROM migrations WHERE batch = ? ORDER BY id DESC")
+            .bind(last_batch)
+            .fetch_all(pool)
+            .await?;
 
     let mut rollback_map = std::collections::HashMap::new();
     for m in migrations {
@@ -499,7 +525,10 @@ async fn rollback_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), 
                 .await?;
             println!("Rolled back:  {}", name);
         } else {
-            println!("Warning: migration {} found in database but not in compiled binary.", name);
+            println!(
+                "Warning: migration {} found in database but not in compiled binary.",
+                name
+            );
         }
     }
 
@@ -509,7 +538,7 @@ async fn rollback_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), 
 pub struct JoinClause {
     pub table: String,
     pub conditions: Vec<String>,
-    pub bindings: Vec<crate::EloquentValue>,
+    pub bindings: Vec<crate::RullstValue>,
 }
 
 impl JoinClause {
@@ -523,11 +552,12 @@ impl JoinClause {
 
     /// WARNING: Ensure `first` and `second` do not contain user input to prevent SQL Injection.
     pub fn on(&mut self, first: &str, operator: &str, second: &str) -> &mut Self {
-        self.conditions.push(format!("{} {} {}", first, operator, second));
+        self.conditions
+            .push(format!("{} {} {}", first, operator, second));
         self
     }
 
-    pub fn on_eq<T: Into<crate::EloquentValue>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn on_eq<T: Into<crate::RullstValue>>(&mut self, column: &str, value: T) -> &mut Self {
         self.conditions.push(format!("{} = ?", column));
         self.bindings.push(value.into());
         self
@@ -540,7 +570,7 @@ impl JoinClause {
 
 pub trait SubqueryBuilder {
     fn to_sql(&self) -> String;
-    fn bindings(&self) -> &Vec<crate::EloquentValue>;
+    fn bindings(&self) -> &Vec<crate::RullstValue>;
 }
 
 pub static QUERY_LOGGING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);

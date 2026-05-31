@@ -1,5 +1,5 @@
-use rullst_orm::{Orm, sqlx::FromRow, EloquentModel};
 use rullst_orm::schema::Schema;
+use rullst_orm::{Orm, RullstModel, sqlx::FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "roles")]
@@ -13,7 +13,7 @@ pub struct Role {
 pub struct User {
     pub id: i32,
     pub name: String,
-    
+
     // The many-to-many relationship!
     #[orm(belongs_to_many = "Role", pivot_table = "role_user")]
     #[sqlx(skip)]
@@ -29,47 +29,73 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     Schema::create("users", |table| {
         table.id();
         table.string("name").not_null();
-    }).await?;
+    })
+    .await?;
 
     Schema::create("roles", |table| {
         table.id();
         table.string("name").not_null();
-    }).await?;
+    })
+    .await?;
 
     Schema::create("role_user", |table| {
         table.integer("user_id").not_null();
         table.integer("role_id").not_null();
-    }).await?;
+    })
+    .await?;
 
     // Create roles
-    let mut admin_role = Role { id: 0, name: "Admin".to_string() };
+    let mut admin_role = Role {
+        id: 0,
+        name: "Admin".to_string(),
+    };
     admin_role.save().await?;
-    
-    let mut editor_role = Role { id: 0, name: "Editor".to_string() };
+
+    let mut editor_role = Role {
+        id: 0,
+        name: "Editor".to_string(),
+    };
     editor_role.save().await?;
 
-    let mut viewer_role = Role { id: 0, name: "Viewer".to_string() };
+    let mut viewer_role = Role {
+        id: 0,
+        name: "Viewer".to_string(),
+    };
     viewer_role.save().await?;
 
     // Create users
-    let mut user1 = User { id: 0, name: "Alice (Admin & Editor)".to_string(), roles: None };
+    let mut user1 = User {
+        id: 0,
+        name: "Alice (Admin & Editor)".to_string(),
+        roles: None,
+    };
     user1.save().await?;
 
-    let mut user2 = User { id: 0, name: "Bob (Viewer)".to_string(), roles: None };
+    let mut user2 = User {
+        id: 0,
+        name: "Bob (Viewer)".to_string(),
+        roles: None,
+    };
     user2.save().await?;
 
     // Attach roles to users in the pivot table!
     rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
-        .bind(user1.id).bind(admin_role.id)
-        .execute(Orm::pool()).await?;
-        
-    rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
-        .bind(user1.id).bind(editor_role.id)
-        .execute(Orm::pool()).await?;
+        .bind(user1.id)
+        .bind(admin_role.id)
+        .execute(Orm::pool())
+        .await?;
 
     rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
-        .bind(user2.id).bind(viewer_role.id)
-        .execute(Orm::pool()).await?;
+        .bind(user1.id)
+        .bind(editor_role.id)
+        .execute(Orm::pool())
+        .await?;
+
+    rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
+        .bind(user2.id)
+        .bind(viewer_role.id)
+        .execute(Orm::pool())
+        .await?;
 
     // Eager Load test
     println!("Fetching users with their roles...");

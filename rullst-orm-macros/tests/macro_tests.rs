@@ -1,4 +1,3 @@
-use rullst_orm_macros::Orm;
 use syn::{parse_quote, DeriveInput};
 
 #[test]
@@ -12,7 +11,7 @@ fn test_basic_model() {
             pub email: String,
         }
     };
-    
+
     // This test just ensures the macro compiles without panicking
     // The actual code generation is tested by the examples
     let _ = input;
@@ -29,7 +28,7 @@ fn test_model_with_relations() {
             comments: Option<Vec<Comment>>,
         }
     };
-    
+
     let _ = input;
 }
 
@@ -43,7 +42,7 @@ fn test_model_with_soft_deletes() {
             pub deleted_at: Option<String>,
         }
     };
-    
+
     let _ = input;
 }
 
@@ -58,6 +57,6 @@ fn test_model_with_hidden_fields() {
             pub password: String,
         }
     };
-    
+
     let _ = input;
 }

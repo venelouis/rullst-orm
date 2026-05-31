@@ -1,16 +1,13 @@
-use quote::quote;
-use proc_macro2::TokenStream;
 use crate::parser::ParsedModel;
+use proc_macro2::TokenStream;
+use quote::quote;
 
-pub fn generate(
-    parsed: &ParsedModel,
-    relationship_methods: &[TokenStream],
-) -> TokenStream {
+pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> TokenStream {
     let name = &parsed.name;
     let table_name = &parsed.table_name;
     let builder_name = quote::format_ident!("{}QueryBuilder", name);
     let observer_trait_name = quote::format_ident!("{}Observer", name);
-    
+
     let normal_fields = &parsed.normal_fields;
     let hidden_fields = &parsed.hidden_fields;
     let has_soft_deletes = parsed.has_soft_deletes;
@@ -20,10 +17,30 @@ pub fn generate(
         relation_field_idents.push(rel.field_name.clone());
     }
 
-    let hook_before_save = if !parsed.before_save.is_empty() { let method = syn::Ident::new(&parsed.before_save, name.span()); quote! { self.#method().await?; } } else { quote! {} };
-    let hook_after_save = if !parsed.after_save.is_empty() { let method = syn::Ident::new(&parsed.after_save, name.span()); quote! { self.#method().await?; } } else { quote! {} };
-    let hook_before_delete = if !parsed.before_delete.is_empty() { let method = syn::Ident::new(&parsed.before_delete, name.span()); quote! { self.#method().await?; } } else { quote! {} };
-    let hook_after_delete = if !parsed.after_delete.is_empty() { let method = syn::Ident::new(&parsed.after_delete, name.span()); quote! { self.#method().await?; } } else { quote! {} };
+    let hook_before_save = if !parsed.before_save.is_empty() {
+        let method = syn::Ident::new(&parsed.before_save, name.span());
+        quote! { self.#method().await?; }
+    } else {
+        quote! {}
+    };
+    let hook_after_save = if !parsed.after_save.is_empty() {
+        let method = syn::Ident::new(&parsed.after_save, name.span());
+        quote! { self.#method().await?; }
+    } else {
+        quote! {}
+    };
+    let hook_before_delete = if !parsed.before_delete.is_empty() {
+        let method = syn::Ident::new(&parsed.before_delete, name.span());
+        quote! { self.#method().await?; }
+    } else {
+        quote! {}
+    };
+    let hook_after_delete = if !parsed.after_delete.is_empty() {
+        let method = syn::Ident::new(&parsed.after_delete, name.span());
+        quote! { self.#method().await?; }
+    } else {
+        quote! {}
+    };
 
     let global_scope_logic = if !parsed.global_scope.is_empty() {
         let method = syn::Ident::new(&parsed.global_scope, name.span());
@@ -32,35 +49,175 @@ pub fn generate(
         quote! {}
     };
 
+    let tenant_scope_logic = if !parsed.tenant_column.is_empty() {
+        let col = &parsed.tenant_column;
+        quote! {
+            if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
+                builder = builder.where_eq(#col, tenant);
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let tenant_set_logic = if !parsed.tenant_column.is_empty() {
+        let col_ident = syn::Ident::new(&parsed.tenant_column, name.span());
+        quote! {
+            if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
+                if let Ok(val) = tenant.try_into() {
+                    self.#col_ident = val;
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let audit_before_update = if parsed.auditable {
+        quote! {
+            let old_model_for_audit = if !is_new {
+                let pool = rullst_orm::Orm::read_pool();
+                rullst_orm::sqlx::query_as::<_, Self>(rullst_orm::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE id = ?", #table_name).as_str()))
+                    .bind(self.id)
+                    .fetch_optional(pool)
+                    .await
+                    .unwrap_or(None)
+            } else {
+                None
+            };
+        }
+    } else {
+        quote! {}
+    };
+
+    let audit_after_save = if parsed.auditable {
+        quote! {
+            if is_new {
+                let _ = rullst_orm::audit::log_audit(
+                    #table_name,
+                    self.id,
+                    "created",
+                    None,
+                    Some(self.to_json())
+                ).await;
+            } else if let Some(old_model) = old_model_for_audit {
+                let _ = rullst_orm::audit::log_audit_diff(
+                    #table_name,
+                    self.id,
+                    "updated",
+                    &old_model.to_json(),
+                    &self.to_json()
+                ).await;
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let audit_after_delete = if parsed.auditable {
+        quote! {
+            let _ = rullst_orm::audit::log_audit(
+                #table_name,
+                self.id,
+                "deleted",
+                Some(self.to_json()),
+                None
+            ).await;
+        }
+    } else {
+        quote! {}
+    };
+
+    let scout_update = if parsed.searchable {
+        quote! {
+            if let Some(engine) = rullst_orm::scout::get_search_engine() {
+                let payload: rullst_orm::serde_json::Value = rullst_orm::serde_json::from_str(&self.to_json()).unwrap_or(rullst_orm::serde_json::Value::Null);
+                let _ = engine.update(#table_name, self.id, payload).await;
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let scout_delete = if parsed.searchable {
+        quote! {
+            if let Some(engine) = rullst_orm::scout::get_search_engine() {
+                let _ = engine.delete(#table_name, self.id).await;
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    let search_method = if parsed.searchable {
+        let cols = parsed.normal_fields.iter().map(|f| f.to_string()).collect::<Vec<_>>();
+        quote! {
+            pub async fn search(query: &str) -> #builder_name {
+                let mut base_builder = #builder_name::new();
+                if let Some(engine) = rullst_orm::scout::get_search_engine() {
+                    let ids = engine.search(#table_name, query).await.unwrap_or_default();
+                    if ids.is_empty() {
+                        base_builder = base_builder.where_eq("id", 0); // impossible match
+                    } else {
+                        let mut sql_ids = String::new();
+                        for (i, id) in ids.iter().enumerate() {
+                            sql_ids.push_str(&id.to_string());
+                            if i < ids.len() - 1 {
+                                sql_ids.push_str(",");
+                            }
+                        }
+                        base_builder = base_builder.where_raw(format!("id IN ({})", sql_ids).as_str());
+                    }
+                    return base_builder;
+                }
+
+                let driver = rullst_orm::Orm::driver();
+                let cast_type = if driver == "mysql" { "CHAR" } else { "TEXT" };
+                let like_query = format!("%{}%", query);
+                
+                let mut raw_where = String::new();
+                let cols = vec![#(#cols),*];
+                for (i, col) in cols.iter().enumerate() {
+                    raw_where.push_str(&format!("CAST({} AS {}) LIKE '{}'", col, cast_type, like_query));
+                    if i < cols.len() - 1 {
+                        raw_where.push_str(" OR ");
+                    }
+                }
+                
+                base_builder.where_raw(raw_where.as_str())
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let mut insert_columns = vec![];
     let mut insert_placeholders = vec![];
     let mut bind_inserts = vec![];
-    
+
     let mut update_sets = vec![];
     let mut bind_updates = vec![];
-    
+
     let mut to_json_fields = vec![];
 
     for field_name in normal_fields {
         let field_name_str = field_name.to_string();
-        
+
         if field_name_str != "id" {
             insert_columns.push(field_name_str.clone());
             insert_placeholders.push("?");
             bind_inserts.push(quote! { .bind(self.#field_name.clone()) });
-            
+
             update_sets.push(format!("{} = ?", field_name_str));
             bind_updates.push(quote! { .bind(self.#field_name.clone()) });
         }
-        
+
         if !hidden_fields.contains(field_name) {
             to_json_fields.push(quote! {
                 map.insert(#field_name_str.to_string(), rullst_orm::serde_json::json!(self.#field_name));
             });
         }
     }
-
-
 
     let insert_columns_str = insert_columns.join(", ");
     let insert_placeholders_str = insert_placeholders.join(", ");
@@ -77,27 +234,37 @@ pub fn generate(
     };
 
     let column_enum_name = quote::format_ident!("{}Column", name);
-    let column_variants: Vec<_> = normal_fields.iter().map(|ident| {
-        let name_str = ident.to_string();
-        let mut chars = name_str.chars();
-        let mut camel = match chars.next() {
-            None => String::new(),
-            Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
-        };
-        camel = camel.split('_').map(|s| {
-            let mut c = s.chars();
-            match c.next() {
+    let column_variants: Vec<_> = normal_fields
+        .iter()
+        .map(|ident| {
+            let name_str = ident.to_string();
+            let mut chars = name_str.chars();
+            let mut camel = match chars.next() {
                 None => String::new(),
-                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-            }
-        }).collect();
-        quote::format_ident!("{}", camel)
-    }).collect();
+                Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+            };
+            camel = camel
+                .split('_')
+                .map(|s| {
+                    let mut c = s.chars();
+                    match c.next() {
+                        None => String::new(),
+                        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                    }
+                })
+                .collect();
+            quote::format_ident!("{}", camel)
+        })
+        .collect();
 
-    let column_to_string: Vec<_> = normal_fields.iter().zip(column_variants.iter()).map(|(ident, variant)| {
-        let field_name_str = ident.to_string();
-        quote! { #column_enum_name::#variant => #field_name_str }
-    }).collect();
+    let column_to_string: Vec<_> = normal_fields
+        .iter()
+        .zip(column_variants.iter())
+        .map(|(ident, variant)| {
+            let field_name_str = ident.to_string();
+            quote! { #column_enum_name::#variant => #field_name_str }
+        })
+        .collect();
 
     let enum_def = quote! {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,13 +280,11 @@ pub fn generate(
         }
     };
 
-
-
     quote! {
         #enum_def
 
         #[rullst_orm::async_trait]
-        impl rullst_orm::EloquentModel for #name {
+        impl rullst_orm::RullstModel for #name {
             fn table_name() -> &'static str {
                 #table_name
             }
@@ -193,9 +358,12 @@ pub fn generate(
                 LIST.get_or_init(|| std::sync::RwLock::new(vec![]))
             }
 
+            #search_method
+
             pub fn query() -> #builder_name {
                 let mut builder = #builder_name::new();
                 #global_scope_logic
+                #tenant_scope_logic
                 builder
             }
 
@@ -203,7 +371,7 @@ pub fn generate(
                 Self::query().where_eq("id", id).first().await
             }
 
-            pub async fn find_with_tx(id: i32, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<Option<Self>, rullst_orm::sqlx::Error> {
+            pub async fn find_with_tx(id: i32, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Option<Self>, rullst_orm::sqlx::Error> {
                 Self::query().where_eq("id", id).first_with_tx(tx).await
             }
 
@@ -211,7 +379,7 @@ pub fn generate(
                 Self::query().get().await
             }
 
-            pub async fn all_with_tx(tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<Vec<Self>, rullst_orm::sqlx::Error> {
+            pub async fn all_with_tx(tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Vec<Self>, rullst_orm::sqlx::Error> {
                 Self::query().get_with_tx(tx).await
             }
 
@@ -220,14 +388,18 @@ pub fn generate(
                 self.save_with_tx_internal(pool).await
             }
 
-            pub async fn save_with_tx(&mut self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn save_with_tx(&mut self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<(), rullst_orm::sqlx::Error> {
                 self.save_with_tx_internal(&mut **tx).await
             }
 
-            async fn save_with_tx_internal<'e, E>(&mut self, executor: E) -> Result<(), rullst_orm::sqlx::Error> 
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::EloquentDatabase>
+            async fn save_with_tx_internal<'e, E>(&mut self, executor: E) -> Result<(), rullst_orm::sqlx::Error>
+            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 let is_new = self.id == 0;
+                if is_new {
+                    #tenant_set_logic
+                }
+                #audit_before_update
                 #hook_before_save
                 {
                     let observers = {
@@ -249,7 +421,7 @@ pub fn generate(
                         }
                     }
                     let driver = rullst_orm::Orm::driver();
-                    if driver == "postgres" {
+                    if driver == "postgres" || driver == "sqlite" {
                         use rullst_orm::sqlx::query_builder::QueryBuilder;
                         use rullst_orm::sqlx::Execute;
                         let mut query_builder = QueryBuilder::new("INSERT INTO ");
@@ -369,6 +541,8 @@ pub fn generate(
                         eprintln!("[Redis Error] Failed to publish saved event: {}", e);
                     }
                 }
+                #audit_after_save
+                #scout_update
                 #hook_after_save
                 Ok(())
             }
@@ -378,12 +552,12 @@ pub fn generate(
                 self.delete_with_tx_internal(pool).await
             }
 
-            pub async fn delete_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::EloquentDatabase>) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn delete_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<(), rullst_orm::sqlx::Error> {
                 self.delete_with_tx_internal(&mut **tx).await
             }
 
-            async fn delete_with_tx_internal<'e, E>(&self, executor: E) -> Result<(), rullst_orm::sqlx::Error> 
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::EloquentDatabase>
+            async fn delete_with_tx_internal<'e, E>(&self, executor: E) -> Result<(), rullst_orm::sqlx::Error>
+            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 #hook_before_delete
                 {
@@ -420,6 +594,8 @@ pub fn generate(
                         eprintln!("[Redis Error] Failed to publish deleted event: {}", e);
                     }
                 }
+                #audit_after_delete
+                #scout_delete
                 #hook_after_delete
                 Ok(())
             }

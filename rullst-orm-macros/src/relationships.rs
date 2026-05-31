@@ -1,6 +1,6 @@
-use quote::quote;
-use proc_macro2::TokenStream;
 use crate::parser::ParsedModel;
+use proc_macro2::TokenStream;
+use quote::quote;
 
 pub struct GeneratedRelationships {
     pub flags: Vec<TokenStream>,
@@ -59,9 +59,30 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
         let rel_model_ident = syn::Ident::new(rel_model, field_name.span());
         let method_name = quote::format_ident!("{}", field_name);
         let method_name_constrained = quote::format_ident!("{}_constrained", field_name);
-        let fk_ident = quote::format_ident!("{}", if foreign_key.is_empty() { format!("{}_id", name.to_string().to_lowercase()) } else { foreign_key.clone() });
-        let lk_ident = quote::format_ident!("{}", if local_key.is_empty() { "id".to_string() } else { local_key.clone() });
-        let pk_ident = quote::format_ident!("{}", if related_key.is_empty() { "id".to_string() } else { related_key.clone() });
+        let fk_ident = quote::format_ident!(
+            "{}",
+            if foreign_key.is_empty() {
+                format!("{}_id", name.to_string().to_lowercase())
+            } else {
+                foreign_key.clone()
+            }
+        );
+        let lk_ident = quote::format_ident!(
+            "{}",
+            if local_key.is_empty() {
+                "id".to_string()
+            } else {
+                local_key.clone()
+            }
+        );
+        let pk_ident = quote::format_ident!(
+            "{}",
+            if related_key.is_empty() {
+                "id".to_string()
+            } else {
+                related_key.clone()
+            }
+        );
 
         if rel_type == "has_many" {
             model_methods.push(quote! {
