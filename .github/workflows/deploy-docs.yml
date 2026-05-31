@@ -6,7 +6,7 @@ on:
       - dev
       - main
     paths:
-      - 'docs/**/*.html'
+      - 'docs/dist/index.html'
       - '.github/workflows/deploy-docs.yml'
 
 jobs:
