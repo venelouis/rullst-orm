@@ -39,6 +39,15 @@ jobs:
 
       - name: Run cargo audit
         run: cargo audit
+      - name: Measure build time
+        run: |
+          (/usr/bin/time -v cargo build --workspace --all-features) 2>&1 | tee build_time.txt || true
+
+      - name: Upload build time artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-time
+          path: build_time.txt
 name: Rust CI & Publish
 
 on:

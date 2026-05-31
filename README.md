@@ -36,6 +36,7 @@ Explore our project documentation, future plans, and recent updates:
 - **[Changelog](https://github.com/venelouis/rullst-orm/blob/main/CHANGELOG.md)**: Detailed release history and updates.
 - **[Roadmap](https://github.com/venelouis/rullst-orm/blob/main/ROADMAP.md)**: Current roadmap and goals for the library's future (including the Zero-Copy Architecture).
 - **[Security & Performance Audit](https://github.com/venelouis/rullst-orm/blob/main/docs/audit_report_complete.md)**: Our latest complete 10/10 architecture audit and resolution notes.
+ - **[AI Agents & Automation](./AGENTS.md)**: Example prompts and recommended agent context for contributors and automation.
 
 ---
 
