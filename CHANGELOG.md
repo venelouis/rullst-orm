@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.0.0] - 2026-06-01
+## [4.0.1] - 2026-06-01
 
 ### Changed (Breaking Changes)
 - **Dependency Shielding Architecture**: The framework now completely hides underlying dependencies (`sqlx`, `serde`, `serde_json`, `futures`, `redis`) from the public API. This ensures that breaking changes in third-party crates will no longer impact user-generated blueprints or business logic. 

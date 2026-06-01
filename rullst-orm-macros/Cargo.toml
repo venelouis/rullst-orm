@@ -1,6 +1,6 @@
 [package]
 name = "rullst-orm-macros"
-version = "4.0.0"
+version = "4.0.1"
 edition = "2024"
 description = "Procedural macros for the rullst-orm ORM."
 license = "MIT"
