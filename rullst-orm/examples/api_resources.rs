@@ -1,4 +1,4 @@
-﻿use rullst_orm::{ApiResource, JsonResource, RullstCollection};
+use rullst_orm::{ApiResource, JsonResource, RullstCollection};
 
 #[derive(Clone, Debug)]
 pub struct User {

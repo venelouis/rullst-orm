@@ -1,4 +1,4 @@
-﻿use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::{Orm, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(
@@ -14,7 +14,7 @@ pub struct User {
 
 impl User {
     // Mutator / Before Save Event
-    pub async fn hash_password(&mut self) -> Result<(), rullst_orm::sqlx::Error> {
+    pub async fn hash_password(&mut self) -> Result<(), rullst_orm::Error> {
         if let Some(pwd) = &self.password
             && !pwd.starts_with("hashed_")
         {
@@ -25,7 +25,7 @@ impl User {
     }
 
     // Accessor / After Fetch Event
-    pub async fn format_name(&mut self) -> Result<(), rullst_orm::sqlx::Error> {
+    pub async fn format_name(&mut self) -> Result<(), rullst_orm::Error> {
         self.name = self.name.to_uppercase();
         println!("[Hook: after_fetch] Name has been formatted to uppercase!");
         Ok(())
@@ -33,13 +33,13 @@ impl User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("hooks_test.db");
     std::fs::File::create("hooks_test.db").unwrap();
     Orm::init("sqlite://hooks_test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

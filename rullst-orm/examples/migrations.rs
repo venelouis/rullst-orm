@@ -1,8 +1,8 @@
-﻿use rullst_orm::Orm;
+use rullst_orm::Orm;
 use rullst_orm::schema::{Blueprint, Schema};
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     // 1. Initialize Database
     let _ = std::fs::remove_file("migrations_test.db");
     std::fs::File::create("migrations_test.db").unwrap();
@@ -40,7 +40,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let pool = Orm::pool();
 
     // Let's manually inspect the SQLite sqlite_schema table
-    let tables: Vec<(String, String)> = rullst_orm::sqlx::query_as(
+    let tables: Vec<(String, String)> = rullst_orm::_sqlx::query_as(
         "SELECT name, sql FROM sqlite_schema WHERE type='table' AND name IN ('users', 'posts')",
     )
     .fetch_all(pool)

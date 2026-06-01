@@ -1,4 +1,4 @@
-﻿use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::{Orm, FromRow};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -23,49 +23,49 @@ pub struct UserObserverImpl;
 
 #[rullst_orm::async_trait]
 impl UserObserver for UserObserverImpl {
-    async fn saving(&self, model: &mut User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn saving(&self, model: &mut User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> saving() called for: {}", model.name);
         SAVING_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn saved(&self, model: &User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn saved(&self, model: &User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> saved() called for: {}", model.name);
         SAVED_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn creating(&self, model: &mut User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn creating(&self, model: &mut User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> creating() called for: {}", model.name);
         CREATING_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn created(&self, model: &User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn created(&self, model: &User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> created() called for: {}", model.name);
         CREATED_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn updating(&self, model: &mut User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn updating(&self, model: &mut User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> updating() called for: {}", model.name);
         UPDATING_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn updated(&self, model: &User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn updated(&self, model: &User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> updated() called for: {}", model.name);
         UPDATED_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn deleting(&self, model: &User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn deleting(&self, model: &User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> deleting() called for: {}", model.name);
         DELETING_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
 
-    async fn deleted(&self, model: &User) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn deleted(&self, model: &User) -> Result<(), rullst_orm::Error> {
         println!("Observer -> deleted() called for: {}", model.name);
         DELETED_COUNT.fetch_add(1, Ordering::SeqCst);
         Ok(())
@@ -73,13 +73,13 @@ impl UserObserver for UserObserverImpl {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("test.db");
     std::fs::File::create("test.db").unwrap();
     Orm::init("sqlite://test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,7 +134,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     assert_eq!(DELETING_COUNT.load(Ordering::SeqCst), 1);
     assert_eq!(DELETED_COUNT.load(Ordering::SeqCst), 1);
 
-    println!("\nðŸŽ‰ All 8 Observer lifecycle hooks executed successfully!");
+    println!("\n🎉 All 8 Observer lifecycle hooks executed successfully!");
 
     // Clean up
     let _ = std::fs::remove_file("test.db");

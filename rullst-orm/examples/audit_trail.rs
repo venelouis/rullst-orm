@@ -1,7 +1,7 @@
-﻿use rullst_orm::Orm;
-use rullst_orm::sqlx;
+use rullst_orm::Orm;
+use rullst_orm::_sqlx;
 
-#[derive(Clone, Debug, Default, rullst_orm::Orm, rullst_orm::sqlx::FromRow)]
+#[derive(Clone, Debug, Default, rullst_orm::Orm, rullst_orm::FromRow)]
 #[orm(table = "users", auditable)]
 pub struct User {
     pub id: i32,

@@ -1,5 +1,5 @@
-﻿use rullst_orm::schema::Schema;
-use rullst_orm::{Orm, RullstModel, sqlx::FromRow};
+use rullst_orm::schema::Schema;
+use rullst_orm::{Orm, RullstModel, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "roles")]
@@ -21,7 +21,7 @@ pub struct User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("manytomany.db");
     std::fs::File::create("manytomany.db").unwrap();
     Orm::init("sqlite://manytomany.db").await?;
@@ -79,19 +79,19 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     user2.save().await?;
 
     // Attach roles to users in the pivot table!
-    rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
+    rullst_orm::_sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
         .bind(user1.id)
         .bind(admin_role.id)
         .execute(Orm::pool())
         .await?;
 
-    rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
+    rullst_orm::_sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
         .bind(user1.id)
         .bind(editor_role.id)
         .execute(Orm::pool())
         .await?;
 
-    rullst_orm::sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
+    rullst_orm::_sqlx::query("INSERT INTO role_user (user_id, role_id) VALUES (?, ?)")
         .bind(user2.id)
         .bind(viewer_role.id)
         .execute(Orm::pool())

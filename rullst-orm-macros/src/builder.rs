@@ -67,7 +67,7 @@ pub fn generate(
         let method = syn::Ident::new(&parsed.after_fetch, name.span());
         quote! {
             let futures = results.iter_mut().map(|model| model.#method());
-            rullst_orm::futures::future::try_join_all(futures).await?;
+            rullst_orm::_futures::future::try_join_all(futures).await?;
         }
     } else {
         quote! {}
@@ -544,24 +544,24 @@ pub fn generate(
                 sql
             }
 
-            pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::sqlx::Error> {
+            pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
                 let pool = rullst_orm::Orm::read_pool();
                 self.get_with_tx_internal(pool).await
             }
 
-            pub async fn get_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Vec<#name>, rullst_orm::sqlx::Error> {
+            pub async fn get_with_tx(&self, tx: &mut rullst_orm::db::Transaction<'static>) -> Result<Vec<#name>, rullst_orm::Error> {
                 self.get_with_tx_internal(&mut **tx).await
             }
 
-            async fn get_with_tx_internal<'e, E>(&self, executor: E) -> Result<Vec<#name>, rullst_orm::sqlx::Error>
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
+            async fn get_with_tx_internal<'e, E>(&self, executor: E) -> Result<Vec<#name>, rullst_orm::Error>
+            where E: rullst_orm::_sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 let query_str = self.to_sql();
 
                 #[cfg(feature = "redis")]
                 {
                     if let Some(ttl) = self.remember_ttl {
-                        use rullst_orm::redis::AsyncCommands;
+                        use rullst_orm::_redis::AsyncCommands;
                         let cache_key = format!("orm:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
                         let mut conn = rullst_orm::Orm::redis_manager();
                         if let Ok(cached_data) = conn.get::<_, String>(&cache_key).await {
@@ -580,7 +580,7 @@ pub fn generate(
                     println!("[SQL Debug] {:?} | Bindings: {:?}", query_str, self.bindings);
                 }
                 let mut results: Vec<#name> = {
-                    let mut query = rullst_orm::sqlx::query_as::<_, #name>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
+                    let mut query = rullst_orm::_sqlx::query_as::<_, #name>(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &self.bindings {
                         match binding {
                             rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
@@ -595,11 +595,11 @@ pub fn generate(
                 #[cfg(feature = "redis")]
                 {
                     if let Some(ttl) = self.remember_ttl {
-                        use rullst_orm::redis::AsyncCommands;
+                        use rullst_orm::_redis::AsyncCommands;
                         let cache_key = format!("orm:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
                         let serialized = #name::to_cache_json_array(&results);
                         let mut conn = rullst_orm::Orm::redis_manager();
-                        let _: Result<(), rullst_orm::redis::RedisError> = conn.set_ex(&cache_key, serialized, ttl as u64).await;
+                        let _: Result<(), rullst_orm::_redis::RedisError> = conn.set_ex(&cache_key, serialized, ttl as u64).await;
                     }
                 }
 
@@ -608,21 +608,21 @@ pub fn generate(
                 Ok(results)
             }
 
-            pub async fn first(&self) -> Result<Option<#name>, rullst_orm::sqlx::Error> {
+            pub async fn first(&self) -> Result<Option<#name>, rullst_orm::Error> {
                 let mut builder = self.clone();
                 builder.limit = Some(1);
                 let results = builder.get().await?;
                 Ok(results.into_iter().next())
             }
 
-            pub async fn first_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Option<#name>, rullst_orm::sqlx::Error> {
+            pub async fn first_with_tx(&self, tx: &mut rullst_orm::db::Transaction<'static>) -> Result<Option<#name>, rullst_orm::Error> {
                 let mut builder = self.clone();
                 builder.limit = Some(1);
                 let results = builder.get_with_tx(tx).await?;
                 Ok(results.into_iter().next())
             }
 
-            pub async fn paginate(&self, page: usize, per_page: usize) -> Result<rullst_orm::PaginationResult<#name>, rullst_orm::sqlx::Error> {
+            pub async fn paginate(&self, page: usize, per_page: usize) -> Result<rullst_orm::PaginationResult<#name>, rullst_orm::Error> {
                 let total_builder = Self {
                     selects: Some("COUNT(*)".to_string()),
                     limit: None,
@@ -645,7 +645,7 @@ pub fn generate(
                 }
                 let pool = rullst_orm::Orm::read_pool();
                 let total_row: (i64,) = {
-                    let mut query = rullst_orm::sqlx::query_as::<_, (i64,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
+                    let mut query = rullst_orm::_sqlx::query_as::<_, (i64,)>(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &total_builder.bindings {
                         match binding {
                             rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
@@ -675,7 +675,7 @@ pub fn generate(
                 })
             }
 
-            pub async fn count(&self) -> Result<i64, rullst_orm::sqlx::Error> {
+            pub async fn count(&self) -> Result<i64, rullst_orm::Error> {
                 let pool = rullst_orm::Orm::read_pool();
                 let mut builder = self.clone();
                 builder.selects = Some("COUNT(*)".to_string());
@@ -688,7 +688,7 @@ pub fn generate(
                 }
 
                 let row: (i64,) = {
-                    let mut query = rullst_orm::sqlx::query_as::<_, (i64,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
+                    let mut query = rullst_orm::_sqlx::query_as::<_, (i64,)>(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &builder.bindings {
                         match binding {
                             rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
@@ -702,7 +702,7 @@ pub fn generate(
                 Ok(row.0)
             }
 
-            pub async fn chunk<F, Fut>(&self, size: usize, mut handler: F) -> Result<(), rullst_orm::sqlx::Error>
+            pub async fn chunk<F, Fut>(&self, size: usize, mut handler: F) -> Result<(), rullst_orm::Error>
             where
                 F: FnMut(Vec<#name>) -> Fut + Send,
                 Fut: std::future::Future<Output = ()> + Send,
@@ -722,7 +722,7 @@ pub fn generate(
                 Ok(())
             }
 
-            pub async fn chunk_with_tx<F, Fut>(&self, size: usize, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>, mut handler: F) -> Result<(), rullst_orm::sqlx::Error>
+            pub async fn chunk_with_tx<F, Fut>(&self, size: usize, tx: &mut rullst_orm::db::Transaction<'static>, mut handler: F) -> Result<(), rullst_orm::Error>
             where
                 F: FnMut(Vec<#name>) -> Fut + Send,
                 Fut: std::future::Future<Output = ()> + Send,
@@ -742,17 +742,17 @@ pub fn generate(
                 Ok(())
             }
 
-            pub async fn delete_all(&self) -> Result<u64, rullst_orm::sqlx::Error> {
+            pub async fn delete_all(&self) -> Result<u64, rullst_orm::Error> {
                 let pool = rullst_orm::Orm::pool();
                 self.delete_all_with_tx_internal(pool).await
             }
 
-            pub async fn delete_all_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<u64, rullst_orm::sqlx::Error> {
+            pub async fn delete_all_with_tx(&self, tx: &mut rullst_orm::db::Transaction<'static>) -> Result<u64, rullst_orm::Error> {
                 self.delete_all_with_tx_internal(&mut **tx).await
             }
 
-            async fn delete_all_with_tx_internal<'e, E>(&self, executor: E) -> Result<u64, rullst_orm::sqlx::Error>
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
+            async fn delete_all_with_tx_internal<'e, E>(&self, executor: E) -> Result<u64, rullst_orm::Error>
+            where E: rullst_orm::_sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 #delete_all_logic
 
@@ -770,7 +770,7 @@ pub fn generate(
                 }
 
                 let result = {
-                    let mut query = rullst_orm::sqlx::query(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
+                    let mut query = rullst_orm::_sqlx::query(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &self.bindings {
                         match binding {
                             rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
@@ -784,13 +784,13 @@ pub fn generate(
                 Ok(result.rows_affected())
             }
 
-            pub async fn pluck_string(&self, column: &str) -> Result<Vec<String>, rullst_orm::sqlx::Error> {
+            pub async fn pluck_string(&self, column: &str) -> Result<Vec<String>, rullst_orm::Error> {
                 let pool = rullst_orm::Orm::read_pool();
                 let mut builder = self.clone();
                 builder.selects = Some(column.to_string());
                 let query_str = builder.to_sql();
                 let rows: Vec<(String,)> = {
-                    let mut query = rullst_orm::sqlx::query_as::<_, (String,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
+                    let mut query = rullst_orm::_sqlx::query_as::<_, (String,)>(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &builder.bindings {
                         match binding {
                             rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }
@@ -804,13 +804,13 @@ pub fn generate(
                 Ok(rows.into_iter().map(|(s,)| s).collect())
             }
 
-            pub async fn pluck_i32(&self, column: &str) -> Result<Vec<i32>, rullst_orm::sqlx::Error> {
+            pub async fn pluck_i32(&self, column: &str) -> Result<Vec<i32>, rullst_orm::Error> {
                 let pool = rullst_orm::Orm::read_pool();
                 let mut builder = self.clone();
                 builder.selects = Some(column.to_string());
                 let query_str = builder.to_sql();
                 let rows: Vec<(i32,)> = {
-                    let mut query = rullst_orm::sqlx::query_as::<_, (i32,)>(rullst_orm::sqlx::AssertSqlSafe(query_str.as_str()));
+                    let mut query = rullst_orm::_sqlx::query_as::<_, (i32,)>(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &builder.bindings {
                         match binding {
                             rullst_orm::RullstValue::String(s) => { query = query.bind(s.clone()); }

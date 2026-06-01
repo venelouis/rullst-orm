@@ -4,9 +4,9 @@ use std::sync::OnceLock;
 
 #[async_trait]
 pub trait SearchEngine: Send + Sync {
-    async fn update(&self, table: &str, id: i32, payload: Value) -> Result<(), sqlx::Error>;
-    async fn delete(&self, table: &str, id: i32) -> Result<(), sqlx::Error>;
-    async fn search(&self, table: &str, query: &str) -> Result<Vec<i32>, sqlx::Error>;
+    async fn update(&self, table: &str, id: i32, payload: Value) -> Result<(), crate::Error>;
+    async fn delete(&self, table: &str, id: i32) -> Result<(), crate::Error>;
+    async fn search(&self, table: &str, query: &str) -> Result<Vec<i32>, crate::Error>;
 }
 
 static SEARCH_ENGINE: OnceLock<Box<dyn SearchEngine>> = OnceLock::new();
@@ -45,13 +45,13 @@ mod tests {
                 _: &str,
                 _: i32,
                 _: serde_json::Value,
-            ) -> Result<(), sqlx::Error> {
+            ) -> Result<(), crate::Error> {
                 Ok(())
             }
-            async fn delete(&self, _: &str, _: i32) -> Result<(), sqlx::Error> {
+            async fn delete(&self, _: &str, _: i32) -> Result<(), crate::Error> {
                 Ok(())
             }
-            async fn search(&self, _: &str, _: &str) -> Result<Vec<i32>, sqlx::Error> {
+            async fn search(&self, _: &str, _: &str) -> Result<Vec<i32>, crate::Error> {
                 Ok(vec![])
             }
         }

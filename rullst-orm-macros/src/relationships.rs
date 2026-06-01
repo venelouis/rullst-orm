@@ -86,12 +86,12 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
 
         if rel_type == "has_many" {
             model_methods.push(quote! {
-                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         #rel_model_ident::query().where_eq(stringify!(#fk_ident), self.#lk_ident.clone()).get().await
                     })
                 }
-                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let mut q = #rel_model_ident::query().where_eq(stringify!(#fk_ident), self.#lk_ident.clone());
                         q = modifier(q);
@@ -101,12 +101,12 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
             });
         } else if rel_type == "has_one" {
             model_methods.push(quote! {
-                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         #rel_model_ident::query().where_eq(stringify!(#fk_ident), self.#lk_ident.clone()).first().await
                     })
                 }
-                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let mut q = #rel_model_ident::query().where_eq(stringify!(#fk_ident), self.#lk_ident.clone());
                         q = modifier(q);
@@ -116,12 +116,12 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
             });
         } else if rel_type == "belongs_to" {
             model_methods.push(quote! {
-                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         #rel_model_ident::query().where_eq(stringify!(#pk_ident), self.#fk_ident.clone()).first().await
                     })
                 }
-                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let mut q = #rel_model_ident::query().where_eq(stringify!(#pk_ident), self.#fk_ident.clone());
                         q = modifier(q);
@@ -133,7 +133,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
             let morph_type_ident = quote::format_ident!("{}_type", morph_name);
             let morph_id_ident = quote::format_ident!("{}_id", morph_name);
             model_methods.push(quote! {
-                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         #rel_model_ident::query()
                             .where_eq(stringify!(#morph_id_ident), self.#lk_ident.clone())
@@ -141,7 +141,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             .get().await
                     })
                 }
-                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let mut q = #rel_model_ident::query()
                             .where_eq(stringify!(#morph_id_ident), self.#lk_ident.clone())
@@ -155,7 +155,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
             let morph_type_ident = quote::format_ident!("{}_type", morph_name);
             let morph_id_ident = quote::format_ident!("{}_id", morph_name);
             model_methods.push(quote! {
-                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         #rel_model_ident::query()
                             .where_eq(stringify!(#morph_id_ident), self.#lk_ident.clone())
@@ -163,7 +163,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             .first().await
                     })
                 }
-                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let mut q = #rel_model_ident::query()
                             .where_eq(stringify!(#morph_id_ident), self.#lk_ident.clone())
@@ -177,7 +177,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
             let pivot_fk = format!("{}.{}", pivot_table, foreign_key);
             let pivot_rk = format!("{}.{}", pivot_table, related_key);
             model_methods.push(quote! {
-                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let related_pk = format!("{}.{}", #rel_model_ident::table_name(), "id");
                         let select_raw = format!("{}.*", #rel_model_ident::table_name());
@@ -188,7 +188,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             .get().await
                     })
                 }
-                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::sqlx::Error>> + Send + '_>> {
+                pub fn #method_name_constrained(&self, modifier: std::sync::Arc<dyn Fn(#rel_model_builder_ident) -> #rel_model_builder_ident + Send + Sync>) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<#rel_model_ident>, rullst_orm::Error>> + Send + '_>> {
                     Box::pin(async move {
                         let related_pk = format!("{}.{}", #rel_model_ident::table_name(), "id");
                         let select_raw = format!("{}.*", #rel_model_ident::table_name());
@@ -376,7 +376,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                                 model.#method_name()
                             }
                         });
-                        let related_results = rullst_orm::futures::future::try_join_all(futures).await?;
+                        let related_results = rullst_orm::_futures::future::try_join_all(futures).await?;
                         for (model, related) in results.iter_mut().zip(related_results.into_iter()) {
                             model.#method_name = Some(related);
                         }

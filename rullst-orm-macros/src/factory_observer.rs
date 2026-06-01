@@ -1,4 +1,4 @@
-﻿use crate::parser::ParsedModel;
+use crate::parser::ParsedModel;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -26,7 +26,7 @@ pub fn generate(parsed: &ParsedModel) -> TokenStream {
                 self
             }
 
-            pub async fn create(&self) -> Result<Vec<#name>, rullst_orm::sqlx::Error> {
+            pub async fn create(&self) -> Result<Vec<#name>, rullst_orm::Error> {
                 let mut results = vec![];
                 for _ in 0..self.count {
                     let mut model = (self.generator)();
@@ -56,14 +56,14 @@ pub fn generate(parsed: &ParsedModel) -> TokenStream {
 
         #[rullst_orm::async_trait]
         pub trait #observer_trait_name {
-            async fn saving(&self, model: &mut #name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn saved(&self, model: &#name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn updating(&self, model: &mut #name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn updated(&self, model: &#name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn creating(&self, model: &mut #name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn created(&self, model: &#name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn deleting(&self, model: &#name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
-            async fn deleted(&self, model: &#name) -> Result<(), rullst_orm::sqlx::Error> { Ok(()) }
+            async fn saving(&self, model: &mut #name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn saved(&self, model: &#name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn updating(&self, model: &mut #name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn updated(&self, model: &#name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn creating(&self, model: &mut #name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn created(&self, model: &#name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn deleting(&self, model: &#name) -> Result<(), rullst_orm::Error> { Ok(()) }
+            async fn deleted(&self, model: &#name) -> Result<(), rullst_orm::Error> { Ok(()) }
         }
     }
 }

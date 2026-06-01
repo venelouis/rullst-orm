@@ -77,7 +77,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
         quote! {
             let old_model_for_audit = if !is_new {
                 let pool = rullst_orm::Orm::read_pool();
-                rullst_orm::sqlx::query_as::<_, Self>(rullst_orm::sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE id = ?", #table_name).as_str()))
+                rullst_orm::_sqlx::query_as::<_, Self>(rullst_orm::_sqlx::AssertSqlSafe(format!("SELECT * FROM {} WHERE id = ?", #table_name).as_str()))
                     .bind(self.id)
                     .fetch_optional(pool)
                     .await
@@ -131,7 +131,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
     let scout_update = if parsed.searchable {
         quote! {
             if let Some(engine) = rullst_orm::scout::get_search_engine() {
-                let payload: rullst_orm::serde_json::Value = rullst_orm::serde_json::from_str(&self.to_json()).unwrap_or(rullst_orm::serde_json::Value::Null);
+                let payload: rullst_orm::_serde_json::Value = rullst_orm::_serde_json::from_str(&self.to_json()).unwrap_or(rullst_orm::_serde_json::Value::Null);
                 let _ = engine.update(#table_name, self.id, payload).await;
             }
         }
@@ -224,7 +224,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
 
         if !hidden_fields.contains(field_name) {
             to_json_fields.push(quote! {
-                map.insert(#field_name_str.to_string(), rullst_orm::serde_json::json!(self.#field_name));
+                map.insert(#field_name_str.to_string(), rullst_orm::_serde_json::json!(self.#field_name));
             });
         }
     }
@@ -303,15 +303,15 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
         impl #name {
             #(#relationship_methods)*
 
-            pub fn from_json(json_str: &str) -> Result<Self, rullst_orm::serde_json::Error> {
-                let value: rullst_orm::serde_json::Value = rullst_orm::serde_json::from_str(json_str)?;
+            pub fn from_json(json_str: &str) -> Result<Self, rullst_orm::_serde_json::Error> {
+                let value: rullst_orm::_serde_json::Value = rullst_orm::_serde_json::from_str(json_str)?;
                 Self::from_json_value(value)
             }
 
-            pub fn from_json_value(value: rullst_orm::serde_json::Value) -> Result<Self, rullst_orm::serde_json::Error> {
+            pub fn from_json_value(value: rullst_orm::_serde_json::Value) -> Result<Self, rullst_orm::_serde_json::Error> {
                 Ok(Self {
                     #(
-                        #normal_fields: rullst_orm::serde_json::from_value(value[stringify!(#normal_fields)].clone())?,
+                        #normal_fields: rullst_orm::_serde_json::from_value(value[stringify!(#normal_fields)].clone())?,
                     )*
                     #(
                         #relation_field_idents: None,
@@ -319,8 +319,8 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 })
             }
 
-            pub fn from_json_array(json_str: &str) -> Result<Vec<Self>, rullst_orm::serde_json::Error> {
-                let value: rullst_orm::serde_json::Value = rullst_orm::serde_json::from_str(json_str)?;
+            pub fn from_json_array(json_str: &str) -> Result<Vec<Self>, rullst_orm::_serde_json::Error> {
+                let value: rullst_orm::_serde_json::Value = rullst_orm::_serde_json::from_str(json_str)?;
                 let mut results = vec![];
                 if let Some(arr) = value.as_array() {
                     for item in arr {
@@ -331,29 +331,29 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
             }
 
             pub fn to_cache_json(&self) -> String {
-                let mut map = rullst_orm::serde_json::Map::new();
+                let mut map = rullst_orm::_serde_json::Map::new();
                 #(
-                    map.insert(stringify!(#normal_fields).to_string(), rullst_orm::serde_json::json!(self.#normal_fields));
+                    map.insert(stringify!(#normal_fields).to_string(), rullst_orm::_serde_json::json!(self.#normal_fields));
                 )*
-                rullst_orm::serde_json::Value::Object(map).to_string()
+                rullst_orm::_serde_json::Value::Object(map).to_string()
             }
 
             pub fn to_cache_json_array(models: &[Self]) -> String {
-                let json_values: Vec<rullst_orm::serde_json::Value> = models.iter().map(|m| {
-                    let mut map = rullst_orm::serde_json::Map::new();
+                let json_values: Vec<rullst_orm::_serde_json::Value> = models.iter().map(|m| {
+                    let mut map = rullst_orm::_serde_json::Map::new();
                     #(
-                        map.insert(stringify!(#normal_fields).to_string(), rullst_orm::serde_json::json!(m.#normal_fields));
+                        map.insert(stringify!(#normal_fields).to_string(), rullst_orm::_serde_json::json!(m.#normal_fields));
                     )*
-                    rullst_orm::serde_json::Value::Object(map)
+                    rullst_orm::_serde_json::Value::Object(map)
                 }).collect();
-                rullst_orm::serde_json::Value::Array(json_values).to_string()
+                rullst_orm::_serde_json::Value::Array(json_values).to_string()
             }
 
-            pub fn from_cache_json(json_str: &str) -> Result<Self, rullst_orm::serde_json::Error> {
+            pub fn from_cache_json(json_str: &str) -> Result<Self, rullst_orm::_serde_json::Error> {
                 Self::from_json(json_str)
             }
 
-            pub fn from_cache_json_array(json_str: &str) -> Result<Vec<Self>, rullst_orm::serde_json::Error> {
+            pub fn from_cache_json_array(json_str: &str) -> Result<Vec<Self>, rullst_orm::_serde_json::Error> {
                 Self::from_json_array(json_str)
             }
 
@@ -377,33 +377,33 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 builder
             }
 
-            pub async fn find(id: i32) -> Result<Option<Self>, rullst_orm::sqlx::Error> {
+            pub async fn find(id: i32) -> Result<Option<Self>, rullst_orm::Error> {
                 Self::query().where_eq("id", id).first().await
             }
 
-            pub async fn find_with_tx(id: i32, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Option<Self>, rullst_orm::sqlx::Error> {
+            pub async fn find_with_tx(id: i32, tx: &mut rullst_orm::db::Transaction<'static>) -> Result<Option<Self>, rullst_orm::Error> {
                 Self::query().where_eq("id", id).first_with_tx(tx).await
             }
 
-            pub async fn all() -> Result<Vec<Self>, rullst_orm::sqlx::Error> {
+            pub async fn all() -> Result<Vec<Self>, rullst_orm::Error> {
                 Self::query().get().await
             }
 
-            pub async fn all_with_tx(tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<Vec<Self>, rullst_orm::sqlx::Error> {
+            pub async fn all_with_tx(tx: &mut rullst_orm::db::Transaction<'static>) -> Result<Vec<Self>, rullst_orm::Error> {
                 Self::query().get_with_tx(tx).await
             }
 
-            pub async fn save(&mut self) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn save(&mut self) -> Result<(), rullst_orm::Error> {
                 let pool = rullst_orm::Orm::pool();
                 self.save_with_tx_internal(pool).await
             }
 
-            pub async fn save_with_tx(&mut self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn save_with_tx(&mut self, tx: &mut rullst_orm::db::Transaction<'static>) -> Result<(), rullst_orm::Error> {
                 self.save_with_tx_internal(&mut **tx).await
             }
 
-            async fn save_with_tx_internal<'e, E>(&mut self, executor: E) -> Result<(), rullst_orm::sqlx::Error>
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
+            async fn save_with_tx_internal<'e, E>(&mut self, executor: E) -> Result<(), rullst_orm::Error>
+            where E: rullst_orm::_sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 let is_new = self.id == 0;
                 if is_new {
@@ -427,8 +427,8 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                     }
                     let driver = rullst_orm::Orm::driver();
                     if driver == "postgres" || driver == "sqlite" {
-                        use rullst_orm::sqlx::query_builder::QueryBuilder;
-                        use rullst_orm::sqlx::Execute;
+                        use rullst_orm::_sqlx::query_builder::QueryBuilder;
+                        use rullst_orm::_sqlx::Execute;
                         let mut query_builder = QueryBuilder::new("INSERT INTO ");
                         query_builder.push(#table_name);
                         query_builder.push(" (");
@@ -444,10 +444,10 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                             #(#bind_inserts)*
                             .fetch_one(executor)
                             .await?;
-                        self.id = rullst_orm::sqlx::Row::try_get(&row, "id")?;
+                        self.id = rullst_orm::_sqlx::Row::try_get(&row, "id")?;
                     } else {
-                        use rullst_orm::sqlx::query_builder::QueryBuilder;
-                        use rullst_orm::sqlx::Execute;
+                        use rullst_orm::_sqlx::query_builder::QueryBuilder;
+                        use rullst_orm::_sqlx::Execute;
                         let mut query_builder = QueryBuilder::new("INSERT INTO ");
                         query_builder.push(#table_name);
                         query_builder.push(" (");
@@ -475,8 +475,8 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                     for obs in &observers {
                         obs.updating(self).await?;
                     }
-                    use rullst_orm::sqlx::query_builder::QueryBuilder;
-                    use rullst_orm::sqlx::Execute;
+                    use rullst_orm::_sqlx::query_builder::QueryBuilder;
+                    use rullst_orm::_sqlx::Execute;
                     let mut query_builder = QueryBuilder::new("UPDATE ");
                     query_builder.push(#table_name);
                     query_builder.push(" SET ");
@@ -500,24 +500,24 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 }
                 #[cfg(feature = "redis")]
                 {
-                    use rullst_orm::redis::AsyncCommands;
+                    use rullst_orm::_redis::AsyncCommands;
                     let mut conn = rullst_orm::Orm::redis_manager();
                     let payload = self.to_json();
                     if is_new {
                         let topic = format!("orm:events:{}:created", #table_name);
-                        let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
+                        let publish_result: Result<usize, rullst_orm::_redis::RedisError> = conn.publish(&topic, &payload).await;
                         if let Err(e) = publish_result {
                             eprintln!("[Redis Error] Failed to publish created event: {}", e);
                         }
                     } else {
                         let topic = format!("orm:events:{}:updated", #table_name);
-                        let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
+                        let publish_result: Result<usize, rullst_orm::_redis::RedisError> = conn.publish(&topic, &payload).await;
                         if let Err(e) = publish_result {
                             eprintln!("[Redis Error] Failed to publish updated event: {}", e);
                         }
                     }
                     let topic = format!("orm:events:{}:saved", #table_name);
-                    let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
+                    let publish_result: Result<usize, rullst_orm::_redis::RedisError> = conn.publish(&topic, &payload).await;
                     if let Err(e) = publish_result {
                         eprintln!("[Redis Error] Failed to publish saved event: {}", e);
                     }
@@ -528,17 +528,17 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 Ok(())
             }
 
-            pub async fn delete(&self) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn delete(&self) -> Result<(), rullst_orm::Error> {
                 let pool = rullst_orm::Orm::pool();
                 self.delete_with_tx_internal(pool).await
             }
 
-            pub async fn delete_with_tx(&self, tx: &mut rullst_orm::sqlx::Transaction<'static, rullst_orm::RullstDatabase>) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn delete_with_tx(&self, tx: &mut rullst_orm::db::Transaction<'static>) -> Result<(), rullst_orm::Error> {
                 self.delete_with_tx_internal(&mut **tx).await
             }
 
-            async fn delete_with_tx_internal<'e, E>(&self, executor: E) -> Result<(), rullst_orm::sqlx::Error>
-            where E: rullst_orm::sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
+            async fn delete_with_tx_internal<'e, E>(&self, executor: E) -> Result<(), rullst_orm::Error>
+            where E: rullst_orm::_sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
             {
                 #hook_before_delete
                 // Acquire observer list once per delete operation.
@@ -553,17 +553,17 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 if rullst_orm::schema::is_query_log_enabled() {
                     println!("[SQL Debug] {:?} | ID: {}", query, self.id);
                 }
-                rullst_orm::sqlx::query(rullst_orm::sqlx::AssertSqlSafe(query.as_str())).bind(self.id).execute(executor).await?;
+                rullst_orm::_sqlx::query(rullst_orm::_sqlx::AssertSqlSafe(query.as_str())).bind(self.id).execute(executor).await?;
                 for obs in &observers {
                     obs.deleted(self).await?;
                 }
                 #[cfg(feature = "redis")]
                 {
-                    use rullst_orm::redis::AsyncCommands;
+                    use rullst_orm::_redis::AsyncCommands;
                     let mut conn = rullst_orm::Orm::redis_manager();
                     let payload = self.to_json();
                     let topic = format!("orm:events:{}:deleted", #table_name);
-                    let publish_result: Result<usize, rullst_orm::redis::RedisError> = conn.publish(&topic, &payload).await;
+                    let publish_result: Result<usize, rullst_orm::_redis::RedisError> = conn.publish(&topic, &payload).await;
                     if let Err(e) = publish_result {
                         eprintln!("[Redis Error] Failed to publish deleted event: {}", e);
                     }
@@ -574,10 +574,10 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 Ok(())
             }
 
-            pub async fn restore(&self) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn restore(&self) -> Result<(), rullst_orm::Error> {
                 if #has_soft_deletes {
                     let pool = rullst_orm::Orm::pool();
-                    use rullst_orm::sqlx::query_builder::QueryBuilder;
+                    use rullst_orm::_sqlx::query_builder::QueryBuilder;
                     let mut query_builder = QueryBuilder::new("UPDATE ");
                     query_builder.push(#table_name);
                     query_builder.push(" SET deleted_at = NULL WHERE id = ?");
@@ -587,9 +587,9 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
                 Ok(())
             }
 
-            pub async fn force_delete(&self) -> Result<(), rullst_orm::sqlx::Error> {
+            pub async fn force_delete(&self) -> Result<(), rullst_orm::Error> {
                 let pool = rullst_orm::Orm::pool();
-                use rullst_orm::sqlx::query_builder::QueryBuilder;
+                use rullst_orm::_sqlx::query_builder::QueryBuilder;
                 let mut query_builder = QueryBuilder::new("DELETE FROM ");
                 query_builder.push(#table_name);
                 query_builder.push(" WHERE id = ?");
@@ -599,9 +599,9 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
             }
 
             pub fn to_json(&self) -> String {
-                let mut map = rullst_orm::serde_json::Map::new();
+                let mut map = rullst_orm::_serde_json::Map::new();
                 #(#to_json_fields)*
-                rullst_orm::serde_json::Value::Object(map).to_string()
+                rullst_orm::_serde_json::Value::Object(map).to_string()
             }
         }
     }

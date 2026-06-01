@@ -1,5 +1,5 @@
-﻿use rullst_orm::schema::{Blueprint, Schema};
-use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::schema::{Blueprint, Schema};
+use rullst_orm::{Orm, FromRow};
 
 // When we derive Orm, it will generate a `UserColumn` enum automatically
 // because our struct is named `User`!
@@ -12,7 +12,7 @@ pub struct User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     // 1. Initialize DB & Schema
     let _ = std::fs::remove_file("compile_time_safety.db");
     std::fs::File::create("compile_time_safety.db").unwrap();

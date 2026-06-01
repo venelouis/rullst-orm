@@ -1,4 +1,4 @@
-﻿use axum::response::Html;
+use axum::response::Html;
 use axum::{Router, routing::get};
 use rullst_orm::dashboard_html;
 

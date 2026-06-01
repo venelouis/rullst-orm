@@ -1,5 +1,5 @@
-﻿use rullst_orm::schema::Schema;
-use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::schema::Schema;
+use rullst_orm::{Orm, FromRow};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UserPreferences {
@@ -19,7 +19,7 @@ pub struct User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("json_casting.db");
     std::fs::File::create("json_casting.db").unwrap();
     Orm::init("sqlite://json_casting.db").await?;

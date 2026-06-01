@@ -1,6 +1,6 @@
-﻿use rand::RngExt;
+use rand::RngExt;
 use rullst_orm::schema::{Blueprint, Schema};
-use rullst_orm::{Orm, Seeder, async_trait, sqlx::FromRow};
+use rullst_orm::{Orm, Seeder, async_trait, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]
@@ -17,7 +17,7 @@ pub struct DatabaseSeeder;
 
 #[async_trait]
 impl Seeder for DatabaseSeeder {
-    async fn run(&self) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn run(&self) -> Result<(), rullst_orm::Error> {
         println!("Running DatabaseSeeder...");
 
         // Use the macro-generated Factory Builder!
@@ -40,7 +40,7 @@ impl Seeder for DatabaseSeeder {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("factories.db");
     std::fs::File::create("factories.db").unwrap();
     Orm::init("sqlite://factories.db").await?;

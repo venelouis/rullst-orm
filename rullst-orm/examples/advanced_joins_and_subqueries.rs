@@ -1,4 +1,4 @@
-﻿use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::{Orm, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]
@@ -17,13 +17,13 @@ pub struct Post {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("test.db");
     std::fs::File::create("test.db").unwrap();
     Orm::init("sqlite://test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +34,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     .execute(pool)
     .await?;
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,7 +91,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // 1. Test where_exists Subquery
     // Find users who have at least one PUBLISHED post
-    println!("ðŸš€ Querying users using 'where_exists' subquery...");
+    println!("🚀 Querying users using 'where_exists' subquery...");
     let active_users = User::query()
         .where_exists(
             Post::query()
@@ -109,7 +109,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // 2. Test join_constrained
     // Join posts table with multiple ON constraints
-    println!("\nðŸš€ Querying posts joining with users using 'join_constrained'...");
+    println!("\n🚀 Querying posts joining with users using 'join_constrained'...");
     let posts_with_users = Post::query()
         .select_raw("posts.*, users.name as author_name")
         .join_constrained("users", |join| {

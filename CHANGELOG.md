@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-06-01
+
+### Changed (Breaking Changes)
+- **Dependency Shielding Architecture**: The framework now completely hides underlying dependencies (`sqlx`, `serde`, `serde_json`, `futures`, `redis`) from the public API. This ensures that breaking changes in third-party crates will no longer impact user-generated blueprints or business logic. 
+- **Internal API Wrappers**: Direct access to `sqlx::Transaction` and `sqlx::Pool` has been replaced with safe internal wrappers (`rullst_orm::db::Transaction` and `rullst_orm::db::Pool`).
+- **Standardized Error Handling**: Replaced raw `sqlx::Error` propagation with the new unified `rullst_orm::Error` (`RullstError`). All framework operations now return this standardized error, effectively isolating application code from the underlying database driver's error variants.
+
+---
+
 ## [3.0.3-1] - 2026-05-31
 
 ### Security (SQL Injection Corrections)

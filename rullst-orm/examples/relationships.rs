@@ -1,4 +1,4 @@
-﻿use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::{Orm, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]
@@ -28,13 +28,13 @@ pub struct Post {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("test.db");
     std::fs::File::create("test.db").unwrap();
     Orm::init("sqlite://test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +46,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     .execute(pool)
     .await?;
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

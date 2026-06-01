@@ -28,23 +28,28 @@ use sqlx::any::install_default_drivers;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-// Re-export the procedural macro so users only need to import `rullst-orm`
-pub use futures;
-pub use serde;
-pub use serde_json;
-pub use sqlx;
+// Hide underlying libraries for macro usage while keeping the public API clean
+#[doc(hidden)] pub use futures as _futures;
+#[doc(hidden)] pub use serde as _serde;
+#[doc(hidden)] pub use serde_json as _serde_json;
+#[doc(hidden)] pub use sqlx as _sqlx;
 
 #[cfg(feature = "redis")]
-pub use redis;
+#[doc(hidden)] pub use redis as _redis;
 pub mod admin;
 pub mod audit;
 pub mod collection;
 pub mod database;
+pub mod db;
+pub mod error;
 pub mod resource;
 pub mod schema;
 pub mod scout;
 pub mod tenant;
 pub mod types;
+
+// Export the custom Error enum to the root
+pub use error::RullstError as Error;
 
 // Re-exports
 pub use admin::dashboard_html;
@@ -53,6 +58,7 @@ pub use database::RullstDatabase;
 pub use resource::{ApiResource, JsonResource, ResourceCollection};
 pub use rullst_orm_macros::Orm;
 pub use scout::{SearchEngine, get_search_engine, set_search_engine};
+pub use _sqlx::FromRow;
 pub use tenant::{get_tenant_id, with_tenant};
 pub use types::Json;
 
@@ -61,7 +67,6 @@ pub use async_trait::async_trait;
 
 // Re-export sqlx and FromRow for database mapping
 pub use schema::{JoinClause, SubqueryBuilder};
-pub use sqlx::FromRow;
 
 /// The global connection pool
 static DB_POOL: OnceLock<RullstPool> = OnceLock::new();
@@ -76,10 +81,10 @@ static REPLICA_POOLS: OnceLock<Vec<RullstPool>> = OnceLock::new();
 static REPLICA_INDEX: AtomicUsize = AtomicUsize::new(0);
 
 #[cfg(feature = "redis")]
-static REDIS_CLIENT: OnceLock<redis::Client> = OnceLock::new();
+static REDIS_CLIENT: OnceLock<_redis::Client> = OnceLock::new();
 
 #[cfg(feature = "redis")]
-static REDIS_MANAGER: OnceLock<redis::aio::ConnectionManager> = OnceLock::new();
+static REDIS_MANAGER: OnceLock<_redis::aio::ConnectionManager> = OnceLock::new();
 
 /// Enum dinÃ¢mico para encapsular qualquer tipo que possa ser associado ao banco de dados pelo Macro
 #[derive(Clone, Debug)]
@@ -158,7 +163,7 @@ pub struct Orm;
 
 impl Orm {
     /// Initialize the global database connection pool using an agnostic URI
-    pub async fn init(database_url: &str) -> Result<(), sqlx::Error> {
+    pub async fn init(database_url: &str) -> Result<(), crate::Error> {
         #[cfg(not(any(
             feature = "strict-postgres",
             feature = "strict-mysql",
@@ -190,7 +195,7 @@ impl Orm {
     pub async fn init_with_replicas(
         primary_url: &str,
         replica_urls: Vec<&str>,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), crate::Error> {
         #[cfg(not(any(
             feature = "strict-postgres",
             feature = "strict-mysql",
@@ -249,44 +254,13 @@ impl Orm {
             .as_str()
     }
 
-    /// Starts a new database transaction
-    #[cfg(not(any(
-        feature = "strict-postgres",
-        feature = "strict-mysql",
-        feature = "strict-sqlite"
-    )))]
-    pub async fn begin_transaction() -> Result<sqlx::Transaction<'static, sqlx::Any>, sqlx::Error> {
+    pub async fn begin_transaction() -> Result<crate::db::Transaction<'static>, crate::Error> {
         let pool = Self::pool();
-        pool.begin().await
-    }
-
-    #[cfg(feature = "strict-postgres")]
-    pub async fn begin_transaction()
-    -> Result<sqlx::Transaction<'static, sqlx::Postgres>, sqlx::Error> {
-        let pool = Self::pool();
-        pool.begin().await
-    }
-
-    #[cfg(all(feature = "strict-mysql", not(feature = "strict-postgres")))]
-    pub async fn begin_transaction() -> Result<sqlx::Transaction<'static, sqlx::MySql>, sqlx::Error>
-    {
-        let pool = Self::pool();
-        pool.begin().await
-    }
-
-    #[cfg(all(
-        feature = "strict-sqlite",
-        not(feature = "strict-postgres"),
-        not(feature = "strict-mysql")
-    ))]
-    pub async fn begin_transaction() -> Result<sqlx::Transaction<'static, sqlx::Sqlite>, sqlx::Error>
-    {
-        let pool = Self::pool();
-        pool.begin().await
+        pool.begin().await.map_err(Into::into)
     }
 
     /// Run an array of seeders sequentially
-    pub async fn seed(seeders: Vec<Box<dyn Seeder>>) -> Result<(), sqlx::Error> {
+    pub async fn seed(seeders: Vec<Box<dyn Seeder>>) -> Result<(), crate::Error> {
         for seeder in seeders {
             seeder.run().await?;
         }
@@ -305,9 +279,9 @@ impl Orm {
 
     /// Initialize Redis connection and connection manager for caching and events
     #[cfg(feature = "redis")]
-    pub async fn init_redis(redis_url: &str) -> Result<(), redis::RedisError> {
-        let client = redis::Client::open(redis_url)?;
-        let manager = redis::aio::ConnectionManager::new(client.clone()).await?;
+    pub async fn init_redis(redis_url: &str) -> Result<(), crate::Error> {
+        let client = _redis::Client::open(redis_url)?;
+        let manager = _redis::aio::ConnectionManager::new(client.clone()).await?;
         let _ = REDIS_CLIENT.set(client);
         let _ = REDIS_MANAGER.set(manager);
         Ok(())
@@ -315,7 +289,7 @@ impl Orm {
 
     /// Get reference to the global Redis client
     #[cfg(feature = "redis")]
-    pub fn redis_client() -> &'static redis::Client {
+    pub fn redis_client() -> &'static _redis::Client {
         REDIS_CLIENT
             .get()
             .expect("Redis must be initialized before using cache features")
@@ -323,7 +297,7 @@ impl Orm {
 
     /// Get clone of the thread-safe connection manager for async Redis queries
     #[cfg(feature = "redis")]
-    pub fn redis_manager() -> redis::aio::ConnectionManager {
+    pub fn redis_manager() -> _redis::aio::ConnectionManager {
         REDIS_MANAGER
             .get()
             .expect("Redis must be initialized before using cache features")
@@ -334,7 +308,7 @@ impl Orm {
 /// A database seeder trait for populating tables
 #[async_trait]
 pub trait Seeder: Send + Sync {
-    async fn run(&self) -> Result<(), sqlx::Error>;
+    async fn run(&self) -> Result<(), crate::Error>;
 }
 
 /// The core trait that all Orm models will implement via #[derive(Orm)]

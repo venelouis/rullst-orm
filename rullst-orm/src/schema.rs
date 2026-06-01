@@ -1,4 +1,4 @@
-use sqlx::Error;
+use crate::Error;
 
 /// Allowlist of SQL comparison/join operators accepted in raw clause builders.
 const ALLOWED_OPERATORS: &[&str] = &["=", "!=", "<>", "<", ">", "<=", ">="];
@@ -8,14 +8,14 @@ const ALLOWED_OPERATORS: &[&str] = &["=", "!=", "<>", "<", ">", "<=", ">="];
 /// for qualified names like `table.column`.
 pub fn validate_identifier(name: &str) -> Result<(), Error> {
     if name.is_empty() {
-        return Err(Error::Protocol(
+        return Err(Error::Internal(
             "SQL identifier cannot be empty".to_string(),
         ));
     }
     // At most one dot is allowed (for `table.column` notation)
     let dot_count = name.chars().filter(|&c| c == '.').count();
     if dot_count > 1 {
-        return Err(Error::Protocol(format!(
+        return Err(Error::Internal(format!(
             "Invalid SQL identifier '{}': at most one dot is allowed",
             name
         )));
@@ -24,7 +24,7 @@ pub fn validate_identifier(name: &str) -> Result<(), Error> {
         .chars()
         .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')
     {
-        return Err(Error::Protocol(format!(
+        return Err(Error::Internal(format!(
             "Invalid SQL identifier '{}': only alphanumeric characters, underscores, hyphens and dots are allowed",
             name
         )));
@@ -36,7 +36,7 @@ pub fn validate_identifier(name: &str) -> Result<(), Error> {
 /// Wraps `validate_identifier` but disallows dots (table names have no qualifier).
 fn validate_table_name(table_name: &str) -> Result<(), Error> {
     if table_name.contains('.') {
-        return Err(Error::Protocol(format!(
+        return Err(Error::Internal(format!(
             "Invalid table name '{}': dots are not allowed in table names",
             table_name
         )));
@@ -349,7 +349,7 @@ fn create_migration_files(name: &str) -> Result<(), Error> {
     let file_name = format!("m{}_{}", now, snake_name);
 
     fs::create_dir_all("src/migrations")
-        .map_err(|e| Error::Protocol(format!("Failed to create migrations directory: {}", e)))?;
+        .map_err(|e| Error::Internal(format!("Failed to create migrations directory: {}", e)))?;
 
     let new_file_path = format!("src/migrations/{}.rs", file_name);
     let migration_code = format!(
@@ -364,14 +364,14 @@ impl Migration for MigrationImpl {{
         "m{timestamp}_{name}"
     }}
 
-    async fn up(&self) -> Result<(), rullst_orm::sqlx::Error> {{
+    async fn up(&self) -> Result<(), crate::Error> {{
         Schema::create("{name}", |table| {{
             table.id();
             table.timestamps();
         }}).await
     }}
 
-    async fn down(&self) -> Result<(), rullst_orm::sqlx::Error> {{
+    async fn down(&self) -> Result<(), crate::Error> {{
         Schema::drop_if_exists("{name}").await
     }}
 }}
@@ -381,7 +381,7 @@ impl Migration for MigrationImpl {{
     );
 
     fs::write(&new_file_path, migration_code)
-        .map_err(|e| Error::Protocol(format!("Failed to write migration file: {}", e)))?;
+        .map_err(|e| Error::Internal(format!("Failed to write migration file: {}", e)))?;
     println!("Created migration file: {}", new_file_path);
 
     regenerate_migrations_mod()?;
@@ -392,11 +392,11 @@ impl Migration for MigrationImpl {{
 fn regenerate_migrations_mod() -> Result<(), Error> {
     use std::fs;
     let paths = fs::read_dir("src/migrations")
-        .map_err(|e| Error::Protocol(format!("Failed to read migrations dir: {}", e)))?;
+        .map_err(|e| Error::Internal(format!("Failed to read migrations dir: {}", e)))?;
 
     let mut modules = vec![];
     for path in paths {
-        let path = path.map_err(|e| Error::Protocol(e.to_string()))?.path();
+        let path = path.map_err(|e| Error::Internal(e.to_string()))?.path();
         if let Some(ext) = path.extension()
             && ext == "rs"
             && let Some(stem) = path.file_stem()
@@ -424,7 +424,7 @@ fn regenerate_migrations_mod() -> Result<(), Error> {
     mod_content.push_str("}\n");
 
     fs::write("src/migrations/mod.rs", mod_content)
-        .map_err(|e| Error::Protocol(format!("Failed to write mod.rs: {}", e)))?;
+        .map_err(|e| Error::Internal(format!("Failed to write mod.rs: {}", e)))?;
     println!("Regenerated src/migrations/mod.rs");
 
     Ok(())

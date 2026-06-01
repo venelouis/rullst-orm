@@ -1,5 +1,5 @@
-﻿use rullst_orm::schema::{Blueprint, Schema};
-use rullst_orm::{Orm, RullstCollection, sqlx::FromRow};
+use rullst_orm::schema::{Blueprint, Schema};
+use rullst_orm::{Orm, RullstCollection, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "products")]
@@ -11,7 +11,7 @@ pub struct Product {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     // 1. Initialize DB & Schema
     let _ = std::fs::remove_file("collections_test.db");
     std::fs::File::create("collections_test.db").unwrap();

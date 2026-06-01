@@ -1,4 +1,4 @@
-﻿use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::{Orm, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]
@@ -9,7 +9,7 @@ pub struct User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     // 1. Setup Primary and Replica databases
     let _ = std::fs::remove_file("primary.db");
     let _ = std::fs::remove_file("replica1.db");
@@ -32,17 +32,17 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let r2_pool = rullst_orm::RullstPool::connect("sqlite://replica2.db").await?;
 
     for pool in &[primary_pool, &r1_pool, &r2_pool] {
-        rullst_orm::sqlx::query(
+        rullst_orm::_sqlx::query(
             "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL)"
         )
         .execute(*pool)
         .await?;
     }
 
-    println!("âœ… Read/Write Connection Split initialized successfully!");
+    println!("✅ Read/Write Connection Split initialized successfully!");
 
     // 3. Write data strictly routes to the primary pool
-    println!("\nðŸ“¥ Inserting users (routes to primary database pool)...");
+    println!("\n📥 Inserting users (routes to primary database pool)...");
     for i in 1..=10 {
         let mut user = User {
             id: 0,
@@ -53,12 +53,12 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     }
 
     // In our manual setup, to simulate replication, let's copy the records from primary to the replica databases
-    let all_users = rullst_orm::sqlx::query_as::<_, User>("SELECT * FROM users")
+    let all_users = rullst_orm::_sqlx::query_as::<_, User>("SELECT * FROM users")
         .fetch_all(primary_pool)
         .await?;
     for user in all_users {
         for pool in &[&r1_pool, &r2_pool] {
-            rullst_orm::sqlx::query("INSERT INTO users (id, name, email) VALUES (?, ?, ?)")
+            rullst_orm::_sqlx::query("INSERT INTO users (id, name, email) VALUES (?, ?, ?)")
                 .bind(user.id)
                 .bind(&user.name)
                 .bind(&user.email)
@@ -72,14 +72,14 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
 
     // 4. Read operations route to replica pools round-robin
     println!(
-        "\nðŸ” Running multiple read operations (load-balanced round-robin across replicas)..."
+        "\n🔍 Running multiple read operations (load-balanced round-robin across replicas)..."
     );
     let count1 = User::query().count().await?;
     let count2 = User::query().count().await?;
     println!("=> Count query 1: {}, Count query 2: {}", count1, count2);
 
     // 5. Query Chunking: low memory batch processing
-    println!("\nðŸ“¦ Testing Query Chunking (processing users in batches of 3)...");
+    println!("\n📦 Testing Query Chunking (processing users in batches of 3)...");
 
     User::query()
         .chunk(3, |chunk| async move {
@@ -95,6 +95,6 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     let _ = std::fs::remove_file("replica1.db");
     let _ = std::fs::remove_file("replica2.db");
 
-    println!("\nðŸŽ‰ Enterprise Scaling demo completed successfully!");
+    println!("\n🎉 Enterprise Scaling demo completed successfully!");
     Ok(())
 }

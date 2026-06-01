@@ -1,7 +1,7 @@
-﻿use rullst_orm::sqlx;
+use rullst_orm::_sqlx;
 use rullst_orm::{Orm, with_tenant};
 
-#[derive(Clone, Debug, Default, rullst_orm::Orm, rullst_orm::sqlx::FromRow)]
+#[derive(Clone, Debug, Default, rullst_orm::Orm, rullst_orm::FromRow)]
 #[orm(table = "products", tenant_column = "tenant_id")]
 pub struct Product {
     pub id: i32,

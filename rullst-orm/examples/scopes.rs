@@ -1,4 +1,4 @@
-﻿use rullst_orm::{Orm, sqlx::FromRow};
+use rullst_orm::{Orm, FromRow};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users", global_scope = "active_only")]
@@ -34,13 +34,13 @@ impl UserQueryBuilder {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("scopes_test.db");
     std::fs::File::create("scopes_test.db").unwrap();
     Orm::init("sqlite://scopes_test.db").await?;
     let pool = Orm::pool();
 
-    rullst_orm::sqlx::query(
+    rullst_orm::_sqlx::query(
         "
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,16 +54,16 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     .await?;
 
     // Insert dummy data
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Alice', 1, 150)")
+    rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Alice', 1, 150)")
         .execute(pool)
         .await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Bob', 0, 200)")
+    rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Bob', 0, 200)")
         .execute(pool)
         .await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Charlie', 1, 50)")
+    rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Charlie', 1, 50)")
         .execute(pool)
         .await?;
-    rullst_orm::sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Amanda', 1, 120)")
+    rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Amanda', 1, 120)")
         .execute(pool)
         .await?;
 

@@ -1,4 +1,4 @@
-﻿use rullst_orm::Orm;
+use rullst_orm::Orm;
 use rullst_orm::schema::{Migration, Schema, run_artisan};
 
 pub struct CreateUsersMigration;
@@ -9,7 +9,7 @@ impl Migration for CreateUsersMigration {
         "m1716612001_create_users_table"
     }
 
-    async fn up(&self) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn up(&self) -> Result<(), rullst_orm::Error> {
         Schema::create("users", |table| {
             table.id();
             table.string("username").not_null();
@@ -18,7 +18,7 @@ impl Migration for CreateUsersMigration {
         .await
     }
 
-    async fn down(&self) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn down(&self) -> Result<(), rullst_orm::Error> {
         Schema::drop_if_exists("users").await
     }
 }
@@ -31,7 +31,7 @@ impl Migration for CreatePostsMigration {
         "m1716612002_create_posts_table"
     }
 
-    async fn up(&self) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn up(&self) -> Result<(), rullst_orm::Error> {
         Schema::create("posts", |table| {
             table.id();
             table.string("title").not_null();
@@ -40,18 +40,18 @@ impl Migration for CreatePostsMigration {
         .await
     }
 
-    async fn down(&self) -> Result<(), rullst_orm::sqlx::Error> {
+    async fn down(&self) -> Result<(), rullst_orm::Error> {
         Schema::drop_if_exists("posts").await
     }
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("artisan_test.db");
     std::fs::File::create("artisan_test.db").unwrap();
     Orm::init("sqlite://artisan_test.db").await?;
 
-    println!("--- ðŸ› ï¸  Simulating Migration Execution (Batch 1) ---");
+    println!("--- 🛠️  Simulating Migration Execution (Batch 1) ---");
     let migrations: Vec<Box<dyn Migration>> = vec![
         Box::new(CreateUsersMigration),
         Box::new(CreatePostsMigration),
@@ -63,7 +63,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // Verify migrations table and schemas
     let pool = Orm::pool();
     let rows: Vec<(i32, String, i32)> =
-        rullst_orm::sqlx::query_as("SELECT id, migration, batch FROM migrations")
+        rullst_orm::_sqlx::query_as("SELECT id, migration, batch FROM migrations")
             .fetch_all(pool)
             .await?;
 
@@ -73,7 +73,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     }
 
     // Verify tables exist
-    let count: (i64,) = rullst_orm::sqlx::query_as(
+    let count: (i64,) = rullst_orm::_sqlx::query_as(
         "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name IN ('users', 'posts')",
     )
     .fetch_one(pool)
@@ -83,7 +83,7 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     // Clean up
     let _ = std::fs::remove_file("artisan_test.db");
 
-    println!("\nðŸŽ‰ Artisan Migrations State Machine verified successfully!");
+    println!("\n🎉 Artisan Migrations State Machine verified successfully!");
 
     Ok(())
 }

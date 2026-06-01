@@ -1,4 +1,4 @@
-﻿use rullst_orm::sqlx::FromRow;
+use rullst_orm::FromRow;
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]
@@ -11,7 +11,7 @@ pub struct User {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     println!("--- Model Serialization & Hiding Demo ---");
 
     // Initialize mock user
@@ -36,6 +36,6 @@ async fn main() -> Result<(), rullst_orm::sqlx::Error> {
     assert!(!json_str.contains("password"));
     assert!(!json_str.contains("super_secret_password_123"));
 
-    println!("\nâœ… Serialization verified! 'password' was successfully hidden.");
+    println!("\n✅ Serialization verified! 'password' was successfully hidden.");
     Ok(())
 }

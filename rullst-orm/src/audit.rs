@@ -18,7 +18,7 @@ pub async fn log_audit(
     event: &str,
     old_values: Option<String>,
     new_values: Option<String>,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), crate::Error> {
     let pool = Orm::pool();
     let driver = Orm::driver();
 
@@ -55,7 +55,7 @@ pub async fn log_audit_diff(
     event: &str,
     old_json: &str,
     new_json: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), crate::Error> {
     let old_val: serde_json::Value =
         serde_json::from_str(old_json).unwrap_or(serde_json::Value::Null);
     let new_val: serde_json::Value =
@@ -85,7 +85,7 @@ pub async fn log_audit_diff(
     log_audit(model_type, model_id, event, final_old, final_new).await
 }
 
-pub async fn create_audit_table() -> Result<(), sqlx::Error> {
+pub async fn create_audit_table() -> Result<(), crate::Error> {
     let pool = Orm::pool();
     let driver = Orm::driver();
 

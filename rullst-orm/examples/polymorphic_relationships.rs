@@ -1,5 +1,5 @@
-﻿use rullst_orm::schema::Schema;
-use rullst_orm::{Orm, RullstModel, sqlx::FromRow};
+use rullst_orm::schema::Schema;
+use rullst_orm::{Orm, RullstModel, FromRow};
 
 // The Comment model represents a polymorphic child.
 // It can belong to either a Post or a Video.
@@ -38,7 +38,7 @@ pub struct Video {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), rullst_orm::sqlx::Error> {
+async fn main() -> Result<(), rullst_orm::Error> {
     let _ = std::fs::remove_file("polymorphic.db");
     std::fs::File::create("polymorphic.db").unwrap();
     Orm::init("sqlite://polymorphic.db").await?;
