@@ -1,6 +1,6 @@
 use rand::RngExt;
 use rullst_orm::schema::{Blueprint, Schema};
-use rullst_orm::{Orm, Seeder, async_trait, FromRow};
+use rullst_orm::{FromRow, Orm, Seeder, async_trait};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users")]

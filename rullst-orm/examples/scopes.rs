@@ -1,4 +1,4 @@
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::{FromRow, Orm};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "users", global_scope = "active_only")]
@@ -60,12 +60,16 @@ async fn main() -> Result<(), rullst_orm::Error> {
     rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Bob', 0, 200)")
         .execute(pool)
         .await?;
-    rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Charlie', 1, 50)")
-        .execute(pool)
-        .await?;
-    rullst_orm::_sqlx::query("INSERT INTO users (name, is_active, votes) VALUES ('Amanda', 1, 120)")
-        .execute(pool)
-        .await?;
+    rullst_orm::_sqlx::query(
+        "INSERT INTO users (name, is_active, votes) VALUES ('Charlie', 1, 50)",
+    )
+    .execute(pool)
+    .await?;
+    rullst_orm::_sqlx::query(
+        "INSERT INTO users (name, is_active, votes) VALUES ('Amanda', 1, 120)",
+    )
+    .execute(pool)
+    .await?;
 
     // 1. Query with Global Scope (Automatically filters out Bob because is_active = 0)
     let active_users = User::query().get().await?;

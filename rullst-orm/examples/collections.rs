@@ -1,5 +1,5 @@
 use rullst_orm::schema::{Blueprint, Schema};
-use rullst_orm::{Orm, RullstCollection, FromRow};
+use rullst_orm::{FromRow, Orm, RullstCollection};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(table = "products")]

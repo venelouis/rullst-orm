@@ -1,4 +1,4 @@
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::{FromRow, Orm};
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
 #[orm(

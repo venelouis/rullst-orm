@@ -1,4 +1,4 @@
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::{FromRow, Orm};
 #[cfg(feature = "redis")]
 use std::time::Duration;
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]

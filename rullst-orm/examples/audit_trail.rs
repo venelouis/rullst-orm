@@ -1,6 +1,5 @@
 use rullst_orm::Orm;
 
-
 #[derive(Clone, Debug, Default, rullst_orm::Orm, rullst_orm::FromRow)]
 #[orm(table = "users", auditable)]
 pub struct User {

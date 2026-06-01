@@ -1,4 +1,4 @@
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::{FromRow, Orm};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 

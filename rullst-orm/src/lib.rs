@@ -29,13 +29,18 @@ use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Hide underlying libraries for macro usage while keeping the public API clean
-#[doc(hidden)] pub use futures as _futures;
-#[doc(hidden)] pub use serde as _serde;
-#[doc(hidden)] pub use serde_json as _serde_json;
-#[doc(hidden)] pub use sqlx as _sqlx;
+#[doc(hidden)]
+pub use futures as _futures;
+#[doc(hidden)]
+pub use serde as _serde;
+#[doc(hidden)]
+pub use serde_json as _serde_json;
+#[doc(hidden)]
+pub use sqlx as _sqlx;
 
 #[cfg(feature = "redis")]
-#[doc(hidden)] pub use redis as _redis;
+#[doc(hidden)]
+pub use redis as _redis;
 pub mod admin;
 pub mod audit;
 pub mod collection;
@@ -52,13 +57,13 @@ pub mod types;
 pub use error::RullstError as Error;
 
 // Re-exports
+pub use _sqlx::FromRow;
 pub use admin::dashboard_html;
 pub use collection::RullstCollection;
 pub use database::RullstDatabase;
 pub use resource::{ApiResource, JsonResource, ResourceCollection};
 pub use rullst_orm_macros::Orm;
 pub use scout::{SearchEngine, get_search_engine, set_search_engine};
-pub use _sqlx::FromRow;
 pub use tenant::{get_tenant_id, with_tenant};
 pub use types::Json;
 

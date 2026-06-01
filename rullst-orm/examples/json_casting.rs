@@ -1,5 +1,5 @@
 use rullst_orm::schema::Schema;
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::{FromRow, Orm};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct UserPreferences {

@@ -1,5 +1,5 @@
 use rullst_orm::schema::Schema;
-use rullst_orm::{Orm, RullstModel, FromRow};
+use rullst_orm::{FromRow, Orm, RullstModel};
 
 // The Comment model represents a polymorphic child.
 // It can belong to either a Post or a Video.

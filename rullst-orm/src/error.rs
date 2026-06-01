@@ -1,5 +1,5 @@
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 
 /// The standard error type for rullst-orm, shielding users from internal dependency errors.
 #[derive(Debug)]

@@ -1,5 +1,5 @@
 use rullst_orm::schema::{Blueprint, Schema};
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::{FromRow, Orm};
 
 // When we derive Orm, it will generate a `UserColumn` enum automatically
 // because our struct is named `User`!
