@@ -6,86 +6,67 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Databases](https://img.shields.io/badge/Databases-PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-lightgrey?style=flat-square)
 ![CI](https://github.com/venelouis/rullst-orm/actions/workflows/ci.yml/badge.svg)
-![Static Audit](https://img.shields.io/badge/Static%20Audit-10%2F10-brightgreen?style=flat-square)
 
-An Active Record ORM for Rust, inspired by Laravel's Orm.
+An Active Record ORM for Rust.
 
-Built on top of `sqlx` and procedural macros, **rullst-orm** aims to bring the delightful and simplistic syntax of Laravel directly to the high-performance Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** universally out of the box using dynamic driver loading!
+Built on top of `sqlx` and procedural macros, **rullst-orm** brings a clean, fluent Active Record API to the Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** through compile-time feature flags.
 
 ## 🚀 Why Rullst ORM?
 
-In traditional Rust database handling, you have to write raw SQL queries, manage connection pools manually across every function, and bind variables repetitively. Rullst ORM solves this by abstracting the heavy lifting behind a single `#[derive(Orm)]` macro. 
+In traditional Rust database handling, you write raw SQL, manage connection pools manually across every function, and bind variables repetitively. Rullst ORM solves this by abstracting the heavy lifting behind a single `#[derive(Orm)]` macro.
 
-**Rullst ORM v1.1.x** brings a massive array of enterprise-grade features:
-- **Read/Write Connection Splitting** for automatic scaling.
-- **Integrated Redis Caching** to speed up repeating queries natively.
-- **Query Chunking** for memory-safe large dataset processing.
-- **Background Event Broadcasting** via Redis Pub/Sub hooks.
-- **Constrained Eager Loading** for fetching deep relationships safely.
-- **Global Lifecycle Observers** to intercept operations before/after they happen.
-- **Subqueries & Advanced Joins** with multi-constraint `ON` clauses.
-- **Artisan Migrations CLI** for auto-generating, mapping, and rolling back database schemas.
-- **Dynamic STDOUT Query Logging** for rapid debugging.
-- **Model Field Serialization & Hiding** to strip out secrets.
+**Rullst ORM v4.0** includes:
+- **Read/Write Connection Splitting** — automatic routing to read replicas.
+- **Integrated Redis Caching** — speed up repeating queries with `.remember(ttl)`.
+- **Query Chunking** — memory-safe large dataset processing.
+- **Constrained Eager Loading** — fetch deep relationships without N+1 queries.
+- **Global Lifecycle Observers** — intercept operations before/after they happen.
+- **Subqueries & Advanced Joins** — multi-constraint `ON` clauses with binding safety.
+- **Artisan Migrations CLI** — auto-generate, run, and roll back database schemas.
+- **Dynamic Query Logging** — toggle STDOUT SQL logging at runtime.
+- **Multi-Tenancy** — async-safe tenant isolation via task-local context.
+- **Audit Logging** — automatic diff-based change trails.
+- **Admin Dashboard** — built-in dark-mode web panel, zero dependencies.
+- **API Resources** — transform models to JSON with a clean trait.
+- **Collection Utilities** — `map`, `filter`, `chunk`, `implode`, and more on every `Vec<Model>`.
 
 ---
 
 ## 📚 Documentation & Planning
 
-Explore our project documentation, future plans, and recent updates:
-- **[Changelog](https://github.com/venelouis/rullst-orm/blob/main/CHANGELOG.md)**: Detailed release history and updates.
-- **[Roadmap](https://github.com/venelouis/rullst-orm/blob/main/ROADMAP.md)**: Current roadmap and goals for the library's future (including the Zero-Copy Architecture).
-- **[Security & Performance Audit](https://github.com/venelouis/rullst-orm/blob/main/NEW_AUDIT.md)**: Our latest complete 10/10 architecture audit and resolution notes.
- - **[AI Agents & Automation](./AGENTS.md)**: Example prompts and recommended agent context for contributors and automation.
+- **[Changelog](https://github.com/venelouis/rullst-orm/blob/main/CHANGELOG.md)**: Detailed release history.
+- **[Spec](https://github.com/venelouis/rullst-orm/blob/main/docs/spec.md)**: Single Source of Truth for macros, API, and architecture.
+- **[Getting Started](https://github.com/venelouis/rullst-orm/blob/main/docs/1-getting-started.md)**: Step-by-step first model and queries.
+- **[Admin Panel](https://github.com/venelouis/rullst-orm/blob/main/docs/2-admin-panel.md)**: Serving the built-in dashboard.
+- **[AI Agents & Automation](./AGENTS.md)**: Example prompts and agent context for contributors.
 
 ---
 
 ## 🛠️ Installation
 
-Add the library to your project by running:
-
-```bash
-cargo add rullst-orm
-cargo add tokio -F full
-```
-
-If you plan to use Redis caching or Pub/Sub events, enable the `redis` feature:
-
-```bash
-cargo add rullst-orm -F redis
-```
-
-### ⚡ Architecture Modes (The Best of Both Worlds)
-
-`rullst-orm` uses Cargo Feature Flags to let you choose between developer productivity and extreme Rust performance, keeping everything in a single, unified repository!
-
-- **Standard Mode (Default)**: Prioritizes extreme ease-of-use and dynamic typing (just like Laravel). It handles lifetimes automatically by allocating memory dynamically under the hood, making it perfect for rapid product development (SaaS, APIs, Web Apps).
-- **Strict Typing Mode**: Enforces `sqlx` compile-time type verification by bypassing `AnyPool` and binding directly to a specific driver (e.g., Postgres, MySQL, SQLite). This gives you maximum Rust compile-time safety without introducing complex lifetimes into your codebase.
-
-To enable the Strict Typing Mode, simply use the specific database feature flag in your `Cargo.toml`:
 ```toml
-# Developer Productivity (Default - Dynamic AnyPool)
-rullst-orm = "3.0"
-
-# Strict Compile-Time Safety (Choose one specific driver)
-rullst-orm = { version = "3.0", features = ["strict-postgres"] }
-# or features = ["strict-mysql"]
-# or features = ["strict-sqlite"]
+[dependencies]
+rullst-orm = { version = "4.0", features = ["postgres"] }
+# or features = ["mysql"]
+# or features = ["sqlite"]
+tokio = { version = "1", features = ["full"] }
 ```
+
+---
 
 ## 📖 Quick Start
 
 ```rust
-use rullst_orm::{Orm, FromRow};
+use rullst_orm::Orm;
 
-// 1. Just add the Orm macro to your struct!
-#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
-#[orm(table = "users")] // Optional: specifies a custom table name
+// 1. Define your model
+#[derive(Debug, Clone, Orm)]
+#[orm(table = "users")]
 pub struct User {
-    pub id: i32, // ID = 0 means it hasn't been saved yet
+    pub id: i32,
     pub name: String,
     pub email: String,
-    #[orm(hidden)] // This field won't be exposed when calling user.to_json()
+    #[orm(hidden)] // excluded from .to_json()
     pub password: String,
 }
 
@@ -94,26 +75,27 @@ async fn main() -> Result<(), rullst_orm::Error> {
     // 2. Initialize the global connection pool
     Orm::init("sqlite::memory:").await?;
 
-    // 3. Create a new user magically
+    // 3. Create a new user
     let mut user = User {
         id: 0,
         name: "Vene Louis".to_string(),
         email: "vene@cosmos.com".to_string(),
         password: "secret".to_string(),
     };
-    
-    user.save().await?; // Runs INSERT and updates the ID automatically!
+    user.save().await?; // Runs INSERT and updates the ID automatically
 
     // 4. Update the user
     user.name = "John Doe".to_string();
-    user.save().await?; // Detects ID > 0 and runs UPDATE automatically!
+    user.save().await?; // Detects id > 0, runs UPDATE automatically
 
     // 5. Fetch from database
-    let found = User::find(1).await?;
+    let found = User::query().find(1).await?;
     println!("Found: {:?}", found);
 
     // 6. Delete
-    found.unwrap().delete().await?;
+    if let Some(u) = found {
+        u.delete().await?;
+    }
 
     Ok(())
 }
@@ -121,78 +103,96 @@ async fn main() -> Result<(), rullst_orm::Error> {
 
 ---
 
-## ✨ Available Query Builder Methods
+## ✨ Query Builder API
 
-The `#[derive(Orm)]` macro injects an entire Query Builder into your model, allowing you to chain methods endlessly.
+The `#[derive(Orm)]` macro injects a full Query Builder into your model.
 
 ### 🔍 Active Record Methods
-These methods are called directly on your model instance or struct:
-- `Model::query()` -> Starts a new Query Builder instance.
-- `Model::find(id: i32)` -> Find a single record by its Primary Key (returns `Option`).
-- `Model::find_or_fail(id: i32)` -> Find a single record or throw `RowNotFound`.
-- `Model::all()` -> Retrieve an array containing all records.
-- `model.save()` -> Automatically runs an `INSERT` or `UPDATE` depending on if the `id` is `0`.
-- `model.delete()` -> Deletes the record from the database.
+
+| Method | Description |
+|---|---|
+| `Model::query()` | Start a new Query Builder instance |
+| `Model::query().find(id)` | Find a single record by Primary Key |
+| `Model::query().first()` | First matching record (`LIMIT 1`) |
+| `Model::query().get()` | All matching records as `Vec<Model>` |
+| `model.save()` | `INSERT` if `id == 0`, else `UPDATE` |
+| `model.delete()` | Delete the record (or soft-delete if `deleted_at` is present) |
 
 ### ⛓️ Query Filters (Chainable)
-You can chain these methods after calling `Model::query()` to filter your data. All values are automatically bound to prevent SQL Injection:
+
+All values are automatically bound to prevent SQL Injection.
 
 **AND Filters:**
-- `.where_eq(column, value)`
-- `.where_not_eq(column, value)`
-- `.where_gt(column, value)` / `.where_lt(column, value)`
-- `.where_like(column, value)` / `.where_not_like(column, value)`
+- `.where_eq(column, value)` / `.where_not_eq(column, value)`
+- `.where_gt(column, value)` / `.where_lt(column, value)` / `.where_gte` / `.where_lte`
+- `.where_like(column, value)`
 - `.where_null(column)` / `.where_not_null(column)`
-- `.where_in(column, vec_of_values)`
-- `.where_between(column, min, max)`
+- `.where_in(column, vec_of_values)` / `.where_not_in(column, vec_of_values)`
+- `.where_between(column, min, max)` / `.where_not_between(column, min, max)`
 
 **OR Filters:**
-- `.or_where(column, value)`
-- `.or_where_not_eq(column, value)`
-- `.or_where_like(column, value)`
-- `.or_where_in(column, vec_of_values)`
+- `.or_where(column, value)` / `.or_where_not_eq(column, value)`
+- `.or_where_like(column, value)` / `.or_where_not_null(column)`
+- `.or_where_in(column, vec_of_values)` / `.or_where_gt(column, value)`
 
-### 🔢 Selection & Aggregation
-- `.select_raw("users.*, posts.title")` -> Choose specific columns or aliases
-- `.group_by(column)` -> Add GROUP BY clause
+**Raw SQL:**
+- `.where_raw(sql)` — raw SQL fragment
+- `.bind(value)` — bind a typed value to the previous `?` placeholder
+
+### 🔢 Sorting, Limits & Aggregation
+
 - `.order_by(column)` / `.order_by_desc(column)`
-- `.limit(value: usize)` / `.offset(value: usize)`
+- `.limit(n)` / `.offset(n)` — aliases: `.take(n)` / `.skip(n)`
+- `.latest(column)` / `.oldest(column)`
+- `.select_raw("col1, col2")` / `.group_by(column)`
+- `.count().await?` → `i64`
+- `.delete_all().await?` — delete all matching rows
 
-### 🛡️ Raw Queries & SQL Injection
-When writing raw `WHERE` clauses, **never concatenate user input directly into the string**. Instead, use the `?` placeholder and bind the value using the `.bind()` method. This delegates the escape process to the database driver, effectively preventing SQL Injection.
+### ⚡ Terminal Executors
+
+- `.get().await?` → `Vec<Model>`
+- `.first().await?` → `Option<Model>`
+- `.find(id).await?` → `Option<Model>`
+- `.paginate(page, per_page).await?` → `PaginationResult<Model>`
 
 ```rust
-// ❌ DANGEROUS: Susceptible to SQL Injection!
+pub struct PaginationResult<T> {
+    pub data: Vec<T>,
+    pub total: i64,
+    pub per_page: usize,
+    pub current_page: usize,
+    pub last_page: usize,
+}
+```
+
+---
+
+## 🛡️ Raw Queries & SQL Injection Prevention
+
+**Never** interpolate user input directly into `.where_raw()`. Always follow with `.bind()`:
+
+```rust
+// ❌ DANGEROUS — SQL Injection risk
 let query = User::query().where_raw(&format!("email = '{}'", input_email));
 
-// ✅ SECURE: Uses parameterized bindings
+// ✅ SECURE — parameterized binding
 let query = User::query()
     .where_raw("email = ? AND status = ?")
     .bind(input_email)
     .bind("active");
 ```
 
-### ⚡ Executors (Terminal Methods)
-End your Query Builder chain with one of these to execute the SQL query asynchronously:
-- `.get().await?` -> Returns a `Vec<Model>` matching your filters.
-- `.first().await?` -> Returns `Option<Model>` (automatically applies `LIMIT 1`).
-- `.paginate(page, per_page).await?` -> Returns `PaginationResult<Model>`.
-- `.count().await?` -> Returns an `i64` representing the number of rows.
-- `.delete_all().await?` -> Deletes all rows matching your filters.
-
 ---
 
 ## 🚀 Advanced Subqueries & Joins
 
-Rullst ORM provides powerful primitives for complex SQL joins and subqueries, maintaining `sqlx` binding safety!
-
 ### Constrained Joins
-You can join tables and apply multiple exact matches inside the join clause:
+
 ```rust
-let posts_with_users = Post::query()
+let posts = Post::query()
     .join_constrained("users", |join| {
         join.on("posts.user_id", "=", "users.id")
-            .on_eq("users.name", "Alice")
+            .on_eq("users.active", true)
     })
     .where_eq("posts.status", "published")
     .get()
@@ -200,7 +200,7 @@ let posts_with_users = Post::query()
 ```
 
 ### Subqueries (`where_exists`)
-Inject nested `WHERE EXISTS` queries natively by passing another query builder:
+
 ```rust
 let active_users = User::query()
     .where_exists(
@@ -215,7 +215,6 @@ let active_users = User::query()
 ---
 
 ## 🛡️ Global Lifecycle Observers
-You can hook into your models’ lifecycle without cluttering your structs! Create an observer and register it globally:
 
 ```rust
 pub struct UserObserverImpl;
@@ -223,113 +222,137 @@ pub struct UserObserverImpl;
 #[rullst_orm::async_trait]
 impl UserObserver for UserObserverImpl {
     async fn saving(&self, model: &mut User) -> Result<(), rullst_orm::Error> {
-        println!("We are about to save user: {}", model.name);
+        println!("About to save user: {}", model.name);
         Ok(())
     }
 }
 
-// Register your observer once globally:
+// Register globally once:
 User::observe(Arc::new(UserObserverImpl));
 ```
-**Supported Events**: `saving`, `saved`, `creating`, `created`, `updating`, `updated`, `deleting`, `deleted`.
+
+**Supported events**: `saving`, `saved`, `creating`, `created`, `updating`, `updated`, `deleting`, `deleted`.
 
 ---
 
-## 🏢 Enterprise Scaling (v1.1.x)
-
-For high-traffic applications, Rullst ORM provides built-in enterprise features to scale your data layer.
+## 🏢 Enterprise Scaling
 
 ### Read/Write Connection Splitting
-Automatically route `SELECT` queries to read replicas while keeping `INSERT`/`UPDATE`/`DELETE` operations on your primary node!
 
 ```rust
-// Initialize primary node
-Orm::init("postgres://primary_db_url").await?;
+Orm::init_with_replicas(
+    "postgres://primary_db_url",
+    vec![
+        "postgres://replica_1_url".to_string(),
+        "postgres://replica_2_url".to_string(),
+    ],
+).await?;
 
-// Initialize array of read replicas
-Orm::init_replicas(&[
-    "postgres://replica_1_url",
-    "postgres://replica_2_url"
-]).await?;
+// SELECTs go to replicas automatically (round-robin)
+let users = User::query().get().await?;
 
-// This uses a read replica automatically (round-robin)
-let users = User::all().await?;
-
-// This uses the primary node automatically
-let mut user = User::find(1).await?.unwrap();
+// INSERT/UPDATE/DELETE go to primary automatically
+let mut user = User::query().find(1).await?.unwrap();
 user.name = "Updated".to_string();
 user.save().await?;
 ```
 
 ### Redis Caching Layer
-Instantly cache heavy database queries by enabling the `redis` feature flag and calling `.remember()`. 
 
 ```rust
-// Initialize Redis
 Orm::init_redis("redis://127.0.0.1/").await?;
 
-// The first call hits the database. Subsequent calls hit Redis until the 3600 seconds expire!
 let active_users = User::query()
     .where_eq("status", "active")
-    .remember(3600) // Cache for 1 hour
+    .remember(3600) // cache for 1 hour
     .get()
     .await?;
 ```
 
 ### Query Chunking
-Process millions of records seamlessly without running out of memory using `.chunk()`.
 
 ```rust
 User::query()
     .where_eq("status", "active")
-    .chunk(1000, |mut batch| Box::pin(async move {
-        for user in batch.iter_mut() {
-            println!("Processing user: {}", user.name);
+    .chunk(1000, |batch| Box::pin(async move {
+        for user in &batch {
+            println!("Processing: {}", user.name);
         }
         Ok(())
     }))
     .await?;
 ```
 
-### Background Event Broadcasting
-When you enable the `redis` feature, Rullst ORM automatically broadcasts Pub/Sub events for model lifecycles. If you update a user, an event is emitted to Redis: `orm:User:updated`, carrying the updated JSON data. This is perfect for syncing external search engines or triggering background workers!
+---
+
+## 🏢 Multi-Tenancy
+
+```rust
+use rullst_orm::tenant::{with_tenant, get_tenant_id};
+
+with_tenant("acme_corp", async {
+    let tenant = get_tenant_id(); // Some(RullstValue::String("acme_corp"))
+    // All ORM queries run inside this scope
+}).await;
+```
 
 ---
 
-## 🐘 Rust Artisan CLI (Migrations & Seeding)
-
-Ship your applications with an integrated database migration architecture running within Rust! 
+## 📋 Audit Logging
 
 ```rust
-// In your application's CLI entry point:
-rullst_orm::schema::run_artisan(std::env::args().collect(), vec![ /* Seeders here */ ]).await;
+use rullst_orm::audit::{create_audit_table, log_audit_diff};
+
+create_audit_table().await?;
+log_audit_diff("User", user.id, "updated", &old_json, &new_json).await?;
 ```
 
-**Commands provided natively:**
-- `make:migration create_users_table` -> Scaffolds a `.rs` migration file using a fluent `Blueprint` generator.
-- `migrate` -> Executes un-run migrations sequentially against the database.
-- `migrate:rollback` -> Undoes the previous batch of executed migrations.
-- `db:seed` -> Iterates through your database Seeders.
+---
+
+## 🖥️ Admin Dashboard
+
+```rust
+use rullst_orm::admin::dashboard_html;
+
+// Axum example:
+let app = Router::new()
+    .route("/admin", get(|| async { Html(dashboard_html()) }));
+```
+
+---
+
+## 🐘 Artisan CLI (Migrations & Seeding)
+
+```rust
+// In your CLI entry point:
+rullst_orm::schema::run_artisan(std::env::args().collect(), vec![
+    // Seeders here
+]).await;
+```
+
+**Commands:**
+- `make:migration create_users_table` — scaffold a `.rs` migration file
+- `migrate` — execute pending migrations
+- `migrate:rollback` — undo the previous batch
+- `db:seed` — run database seeders
 
 ---
 
 ## 🔎 Query Debug Logging
-Ever wondered what SQL queries are running under the hood? Toggle STDOUT query logging dynamically at any point!
 
 ```rust
 Orm::enable_query_log();
-// All queries, limits, offsets, and parameter bindings will print to STDOUT
+// All SQL, parameters, limits, and offsets print to STDOUT
 Orm::disable_query_log();
 ```
 
 ---
 
-## ⚙️ Compile-Time Magic Methods
-The macro intelligently inspects your struct fields at compile time and generates exclusive methods for **each field**. If your struct has an `email` field, you automatically unlock:
-- `.where_email(value)`
-- `.or_where_email(value)`
-- `.where_not_email(value)`
-- `.order_by_email()`
-- `.order_by_email_desc()`
+## ⚙️ Compile-Time Field Methods
 
-This provides an incredible developer experience identical to Laravel!
+The macro inspects your struct at compile time and generates typed methods per field. For a `name: String` field, you automatically get:
+
+- `.where_name(value)`
+- `.or_where_name(value)`
+- `.where_not_name(value)`
+- `.order_by_name()` / `.order_by_name_desc()`
