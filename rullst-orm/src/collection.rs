@@ -162,7 +162,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_map() {
         let v = vec![1, 2, 3];
         let mapped = v.map(|x| x * 2);
