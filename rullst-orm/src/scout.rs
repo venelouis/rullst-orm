@@ -57,5 +57,8 @@ mod tests {
         }
         set_search_engine(Box::new(Noop));
         set_search_engine(Box::new(Noop)); // second call must not panic
+        
+        let engine = get_search_engine();
+        assert!(engine.is_some());
     }
 }

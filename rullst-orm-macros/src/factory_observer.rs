@@ -27,12 +27,15 @@ pub fn generate(parsed: &ParsedModel) -> TokenStream {
             }
 
             pub async fn create(&self) -> Result<Vec<#name>, rullst_orm::Error> {
-                let mut results = vec![];
+                let mut futures = vec![];
                 for _ in 0..self.count {
                     let mut model = (self.generator)();
-                    model.save().await?;
-                    results.push(model);
+                    futures.push(async move {
+                        model.save().await?;
+                        Ok::<#name, rullst_orm::Error>(model)
+                    });
                 }
+                let results = rullst_orm::_futures::future::try_join_all(futures).await?;
                 Ok(results)
             }
 

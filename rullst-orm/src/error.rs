@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt;
 
 /// The standard error type for rullst-orm, shielding users from internal dependency errors.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RullstError {
     /// A record was not found in the database.
     RecordNotFound,
@@ -12,6 +12,8 @@ pub enum RullstError {
     SerializationError(String),
     /// A cache or event-related error.
     CacheError(String),
+    /// A validation error, such as invalid SQL identifiers.
+    Validation(String),
     /// Other internal errors.
     Internal(String),
 }
@@ -23,6 +25,7 @@ impl fmt::Display for RullstError {
             RullstError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
             RullstError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
             RullstError::CacheError(msg) => write!(f, "Cache error: {}", msg),
+            RullstError::Validation(msg) => write!(f, "Validation error: {}", msg),
             RullstError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }

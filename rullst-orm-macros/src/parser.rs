@@ -1,4 +1,4 @@
-﻿use syn::{Data, DeriveInput, Fields, spanned::Spanned};
+use syn::{Data, DeriveInput, Fields, spanned::Spanned};
 
 /// Validates that a relation attribute has valid syntax
 fn validate_relation_attribute(
@@ -120,9 +120,9 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let fields = match &input.data {
         Data::Struct(data_struct) => match &data_struct.fields {
             Fields::Named(fields_named) => &fields_named.named,
-            _ => panic!("Orm macro only supports structs with named fields"),
+            _ => return Err(syn::Error::new_spanned(input, "Orm macro only supports structs with named fields")),
         },
-        _ => panic!("Orm macro can only be used on structs"),
+        _ => return Err(syn::Error::new_spanned(input, "Orm macro can only be used on structs")),
     };
 
     let mut normal_fields = vec![];

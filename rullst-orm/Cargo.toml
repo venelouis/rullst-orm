@@ -1,6 +1,6 @@
 [package]
 name = "rullst-orm"
-version = "4.0.2"
+version = "4.0.3"
 edition = "2024"
 description = "An Active Record ORM for Rust."
 license = "MIT"

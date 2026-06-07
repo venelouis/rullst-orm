@@ -179,7 +179,7 @@ impl Orm {
         let pool = RullstPool::connect(database_url).await?;
 
         if DB_POOL.set(pool).is_err() {
-            panic!("Orm has already been initialized");
+            return Err(crate::Error::Internal("Orm has already been initialized".to_string()));
         }
 
         let driver = if database_url.starts_with("postgres") {
@@ -211,7 +211,7 @@ impl Orm {
         let pool = RullstPool::connect(primary_url).await?;
 
         if DB_POOL.set(pool).is_err() {
-            panic!("Orm has already been initialized");
+            return Err(crate::Error::Internal("Orm has already been initialized".to_string()));
         }
 
         let driver = if primary_url.starts_with("postgres") {

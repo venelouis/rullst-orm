@@ -36,4 +36,20 @@ mod tests {
         // After the scope, it should be None again.
         assert!(get_tenant_id().is_none());
     }
+
+    #[tokio::test]
+    async fn test_nested_tenant_scopes() {
+        let _ = with_tenant("outer", async {
+            let outer_id = get_tenant_id();
+            assert!(matches!(outer_id, Some(RullstValue::String(ref s)) if s == "outer"));
+
+            let _ = with_tenant("inner", async {
+                let inner_id = get_tenant_id();
+                assert!(matches!(inner_id, Some(RullstValue::String(ref s)) if s == "inner"));
+            }).await;
+
+            let restored_outer_id = get_tenant_id();
+            assert!(matches!(restored_outer_id, Some(RullstValue::String(ref s)) if s == "outer"));
+        }).await;
+    }
 }

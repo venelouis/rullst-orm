@@ -63,7 +63,7 @@ pub fn generate(
     let builder_name = quote::format_ident!("{}QueryBuilder", name);
     let table_name = &parsed.table_name;
     let has_soft_deletes = parsed.has_soft_deletes;
-    let hook_after_fetch = if !parsed.after_fetch.is_empty() {
+    let _hook_after_fetch = if !parsed.after_fetch.is_empty() {
         let method = syn::Ident::new(&parsed.after_fetch, name.span());
         quote! {
             let futures = results.iter_mut().map(|model| model.#method());
@@ -73,7 +73,8 @@ pub fn generate(
         quote! {}
     };
 
-    let delete_all_logic = generate_delete_all_logic(has_soft_deletes, table_name);
+    let _delete_all_logic = generate_delete_all_logic(has_soft_deletes, table_name);
+    let execution_methods = generate_execution_methods(parsed, &builder_name, eager_loads);
     let magic_methods = generate_magic_methods(parsed);
 
     quote! {
@@ -89,6 +90,7 @@ pub fn generate(
             pub wheres: Vec<(String, String)>,
             pub havings: Vec<(String, String)>,
             pub bindings: Vec<rullst_orm::RullstValue>,
+            pub errors: Vec<rullst_orm::Error>,
             pub with_trashed: bool,
             pub only_trashed: bool,
             #[cfg(feature = "redis")]
@@ -118,6 +120,7 @@ pub fn generate(
                     wheres: vec![],
                     havings: vec![],
                     bindings: vec![],
+                    errors: vec![],
                     with_trashed: false,
                     only_trashed: false,
                     #[cfg(feature = "redis")]
@@ -205,34 +208,43 @@ pub fn generate(
             }
 
             pub fn join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
-                rullst_orm::schema::validate_identifier(table)
-                    .unwrap_or_else(|e| panic!("join() — invalid table identifier: {}", e));
-                rullst_orm::schema::validate_identifier(first)
-                    .unwrap_or_else(|e| panic!("join() — invalid column identifier for `first`: {}", e));
-                rullst_orm::schema::validate_identifier(second)
-                    .unwrap_or_else(|e| panic!("join() — invalid column identifier for `second`: {}", e));
+                if let Err(e) = rullst_orm::schema::validate_identifier(table) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("join() — invalid table identifier: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(first) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("join() — invalid column identifier for `first`: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(second) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("join() — invalid column identifier for `second`: {}", e)));
+                }
                 self.joins.push(format!("INNER JOIN {} ON {} {} {}", table, first, operator, second));
                 self
             }
 
             pub fn left_join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
-                rullst_orm::schema::validate_identifier(table)
-                    .unwrap_or_else(|e| panic!("left_join() — invalid table identifier: {}", e));
-                rullst_orm::schema::validate_identifier(first)
-                    .unwrap_or_else(|e| panic!("left_join() — invalid column identifier for `first`: {}", e));
-                rullst_orm::schema::validate_identifier(second)
-                    .unwrap_or_else(|e| panic!("left_join() — invalid column identifier for `second`: {}", e));
+                if let Err(e) = rullst_orm::schema::validate_identifier(table) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("left_join() — invalid table identifier: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(first) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("left_join() — invalid column identifier for `first`: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(second) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("left_join() — invalid column identifier for `second`: {}", e)));
+                }
                 self.joins.push(format!("LEFT JOIN {} ON {} {} {}", table, first, operator, second));
                 self
             }
 
             pub fn right_join(mut self, table: &str, first: &str, operator: &str, second: &str) -> Self {
-                rullst_orm::schema::validate_identifier(table)
-                    .unwrap_or_else(|e| panic!("right_join() — invalid table identifier: {}", e));
-                rullst_orm::schema::validate_identifier(first)
-                    .unwrap_or_else(|e| panic!("right_join() — invalid column identifier for `first`: {}", e));
-                rullst_orm::schema::validate_identifier(second)
-                    .unwrap_or_else(|e| panic!("right_join() — invalid column identifier for `second`: {}", e));
+                if let Err(e) = rullst_orm::schema::validate_identifier(table) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("right_join() — invalid table identifier: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(first) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("right_join() — invalid column identifier for `first`: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(second) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("right_join() — invalid column identifier for `second`: {}", e)));
+                }
                 self.joins.push(format!("RIGHT JOIN {} ON {} {} {}", table, first, operator, second));
                 self
             }
@@ -347,10 +359,12 @@ pub fn generate(
             /// Panics if `first` or `second` are not valid SQL identifiers.
             /// Column names must always be hardcoded — never pass user input here.
             pub fn where_column(mut self, first: &str, second: &str) -> Self {
-                rullst_orm::schema::validate_identifier(first)
-                    .unwrap_or_else(|e| panic!("where_column() — invalid identifier for `first`: {}", e));
-                rullst_orm::schema::validate_identifier(second)
-                    .unwrap_or_else(|e| panic!("where_column() — invalid identifier for `second`: {}", e));
+                if let Err(e) = rullst_orm::schema::validate_identifier(first) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("where_column() — invalid identifier for `first`: {}", e)));
+                }
+                if let Err(e) = rullst_orm::schema::validate_identifier(second) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("where_column() — invalid identifier for `second`: {}", e)));
+                }
                 self.wheres.push(("AND".to_string(), format!("{} = {}", first, second)));
                 self
             }
@@ -422,8 +436,9 @@ pub fn generate(
             /// Panics if `column` is not a valid SQL identifier.
             /// Column names must always be hardcoded — never pass user input here.
             pub fn order_by(mut self, column: &str) -> Self {
-                rullst_orm::schema::validate_identifier(column)
-                    .unwrap_or_else(|e| panic!("order_by() — invalid column identifier: {}", e));
+                if let Err(e) = rullst_orm::schema::validate_identifier(column) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("order_by() — invalid column identifier: {}", e)));
+                }
                 self.order_by = Some(format!("{} ASC", column));
                 self
             }
@@ -434,8 +449,9 @@ pub fn generate(
             /// Panics if `column` is not a valid SQL identifier.
             /// Column names must always be hardcoded — never pass user input here.
             pub fn order_by_desc(mut self, column: &str) -> Self {
-                rullst_orm::schema::validate_identifier(column)
-                    .unwrap_or_else(|e| panic!("order_by_desc() — invalid column identifier: {}", e));
+                if let Err(e) = rullst_orm::schema::validate_identifier(column) {
+                    self.errors.push(rullst_orm::Error::Validation(format!("order_by_desc() — invalid column identifier: {}", e)));
+                }
                 self.order_by = Some(format!("{} DESC", column));
                 self
             }
@@ -563,7 +579,31 @@ pub fn generate(
                 }
             }
 
-            pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
+            
+            #(#execution_methods)*
+            #(#magic_methods)*
+        }
+    }
+}
+
+
+fn generate_execution_methods(parsed: &ParsedModel, _builder_name: &syn::Ident, eager_loads: &TokenStream) -> Vec<TokenStream> {
+    let name = &parsed.name;
+    let table_name = &parsed.table_name;
+    let has_soft_deletes = parsed.has_soft_deletes;
+    let hook_after_fetch = if !parsed.after_fetch.is_empty() {
+        let method = syn::Ident::new(&parsed.after_fetch, name.span());
+        quote! {
+            let futures = results.iter_mut().map(|model| model.#method());
+            rullst_orm::_futures::future::try_join_all(futures).await?;
+        }
+    } else {
+        quote! {}
+    };
+    let delete_all_logic = generate_delete_all_logic(has_soft_deletes, table_name);
+
+    vec![quote! {
+pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
                 let pool = rullst_orm::Orm::read_pool();
                 self.get_with_tx_internal(pool).await
             }
@@ -844,7 +884,6 @@ pub fn generate(
                 Ok(rows.into_iter().map(|(s,)| s).collect())
             }
 
-            #(#magic_methods)*
-        }
-    }
+            
+    }]
 }

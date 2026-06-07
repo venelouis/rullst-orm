@@ -10,6 +10,16 @@ pub trait RullstCollection<T> {
         K: Hash + Eq;
 
     /// Splits the collection into chunks of the given size
+        /// Maps each item using the given closure
+    fn map<U, F>(self, f: F) -> Vec<U>
+    where
+        F: FnMut(T) -> U;
+
+    /// Filters items using the given closure
+    fn filter<F>(self, f: F) -> Vec<T>
+    where
+        F: FnMut(&T) -> bool;
+
     fn chunk(self, size: usize) -> Vec<Vec<T>>;
 
     /// Joins the items into a single string using the given separator and closure
@@ -52,6 +62,20 @@ impl<T> RullstCollection<T> for Vec<T> {
             map.insert(f(&item), item);
         }
         map
+    }
+
+        fn map<U, F>(self, f: F) -> Vec<U>
+    where
+        F: FnMut(T) -> U,
+    {
+        self.into_iter().map(f).collect()
+    }
+
+    fn filter<F>(self, f: F) -> Vec<T>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        self.into_iter().filter(f).collect()
     }
 
     fn chunk(self, size: usize) -> Vec<Vec<T>> {
@@ -135,6 +159,21 @@ mod tests {
         let map = v.key_by(|(k, _)| *k);
         assert_eq!(map[&1].1, "a");
         assert_eq!(map[&3].1, "c");
+    }
+
+    #[test]
+        #[test]
+    fn test_map() {
+        let v = vec![1, 2, 3];
+        let mapped = v.map(|x| x * 2);
+        assert_eq!(mapped, vec![2, 4, 6]);
+    }
+
+    #[test]
+    fn test_filter() {
+        let v = vec![1, 2, 3, 4];
+        let filtered = v.filter(|x| x % 2 == 0);
+        assert_eq!(filtered, vec![2, 4]);
     }
 
     #[test]

@@ -49,13 +49,7 @@ pub async fn log_audit(
     Ok(())
 }
 
-pub async fn log_audit_diff(
-    model_type: &str,
-    model_id: i32,
-    event: &str,
-    old_json: &str,
-    new_json: &str,
-) -> Result<(), crate::Error> {
+pub fn compute_diff(old_json: &str, new_json: &str) -> (Option<String>, Option<String>) {
     let old_val: serde_json::Value =
         serde_json::from_str(old_json).unwrap_or(serde_json::Value::Null);
     let new_val: serde_json::Value =
@@ -66,22 +60,36 @@ pub async fn log_audit_diff(
 
     if let (Some(old_obj), Some(new_obj)) = (old_val.as_object(), new_val.as_object()) {
         for (k, v) in old_obj {
-            if let Some(new_v) = new_obj.get(k)
-                && v != new_v
-            {
-                diff_old.insert(k.clone(), v.clone());
-                diff_new.insert(k.clone(), new_v.clone());
+            if let Some(new_v) = new_obj.get(k) {
+                if v != new_v {
+                    diff_old.insert(k.clone(), v.clone());
+                    diff_new.insert(k.clone(), new_v.clone());
+                }
             }
         }
     }
 
     if diff_old.is_empty() && diff_new.is_empty() {
-        return Ok(()); // Nothing changed
+        return (None, None); // Nothing changed
     }
 
     let final_old = serde_json::to_string(&diff_old).ok();
     let final_new = serde_json::to_string(&diff_new).ok();
 
+    (final_old, final_new)
+}
+
+pub async fn log_audit_diff(
+    model_type: &str,
+    model_id: i32,
+    event: &str,
+    old_json: &str,
+    new_json: &str,
+) -> Result<(), crate::Error> {
+    let (final_old, final_new) = compute_diff(old_json, new_json);
+    if final_old.is_none() && final_new.is_none() {
+        return Ok(()); // Nothing changed
+    }
     log_audit(model_type, model_id, event, final_old, final_new).await
 }
 
@@ -173,5 +181,29 @@ mod tests {
         assert_eq!(cloned.model_type, "Post");
         // Debug must not panic
         let _ = format!("{:?}", cloned);
+    }
+
+    #[test]
+    fn test_compute_diff_changes() {
+        let old_json = r#"{"name":"Alice","age":30}"#;
+        let new_json = r#"{"name":"Alice","age":31}"#;
+        let (old_diff, new_diff) = super::compute_diff(old_json, new_json);
+        assert_eq!(old_diff.unwrap(), r#"{"age":30}"#);
+        assert_eq!(new_diff.unwrap(), r#"{"age":31}"#);
+    }
+
+    #[test]
+    fn test_compute_diff_no_changes() {
+        let json = r#"{"name":"Alice","age":30}"#;
+        let (old_diff, new_diff) = super::compute_diff(json, json);
+        assert!(old_diff.is_none());
+        assert!(new_diff.is_none());
+    }
+
+    #[test]
+    fn test_compute_diff_invalid_json() {
+        let (old_diff, new_diff) = super::compute_diff("not json", "{invalid}");
+        assert!(old_diff.is_none());
+        assert!(new_diff.is_none());
     }
 }

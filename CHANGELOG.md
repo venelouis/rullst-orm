@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.3] - 2026-06-07 🧪
+
+### Added
+- **`compute_diff` utility (`audit.rs`):** Extracted the inner diffing logic from `log_audit_diff` into a pure, database-free `compute_diff(old_json, new_json)` function, making audit diff behavior fully unit-testable.
+- **`RullstCollection::map` and `filter`:** Added two new functional methods to the `RullstCollection` trait, enabling idiomatic collection transformation and filtering in Rust.
+- **Nested Tenant scope test (`tenant.rs`):** Added `test_nested_tenant_scopes` to verify correct shadowing and restoration behavior when `with_tenant` scopes are nested.
+
+### Changed
+- **Macro refactor (`models.rs`, `builder.rs`):** The large monolithic `generate()` functions have been broken into focused helper functions (`generate_struct`, `generate_impl_block`, `generate_orm_trait_impl`, etc.), significantly reducing cyclomatic complexity and improving maintainability.
+- **Error Bag in `QueryBuilder`:** The `QueryBuilder` now accumulates errors in an `errors: Vec<Error>` field instead of calling `panic!` on invalid columns, returning an appropriate `Error::Validation` at runtime.
+- **N+1 eliminated in replica sync (`enterprise_scaling.rs`):** The replica database sync loop has been rewritten using `try_join_all`, executing all queries in parallel instead of sequentially.
+
+### Fixed
+- **Eliminated all `panic!` from the `rullst-orm` public API:** All remaining `panic!` calls have been replaced with `Error::Internal` or `Error::Validation` surfaced through `Result<T, RullstError>`.
+- **Proc-macro `panic!` replaced with `syn::Error`:** Proc-macro expansion in `parser.rs` now emits proper compile-time errors via `syn::Error::new(...).to_compile_error()` instead of panicking during macro expansion.
+- **`Pool` borrowing in examples (`enterprise_scaling.rs`):** Fixed borrow checker violations by using `&pool` instead of `pool.clone()` in `.execute()` calls, correctly satisfying SQLx's `Executor<'_>` trait bound.
+
+### Security
+- **SQL Injection hardening in `JoinClause`:** `JoinClause::on()` now validates both column names and operators through `validate_identifier` before building any SQL fragment, rejecting malicious input with `Error::Validation`.
+- **Removed commented-out code blocks:** All dead commented-out code blocks flagged in the audit have been removed to prevent hidden unsafe logic and reduce maintainer confusion.
+
+### Tests
+- **44 tests passing** across the full workspace (`cargo test --workspace --all-features`), including 4 macro integration tests.
+- New test coverage added for: `collection` (map, filter), `tenant` (nested scopes), `scout` (idempotent Search Engine registry), `audit` (compute_diff with changed fields, no changes, and invalid JSON), `admin` (dashboard HTML rendering), and `resource` (JSON collection serialization).
+
 ## [4.0.2] - 2026-06-07 🛡️
 
 ### Security

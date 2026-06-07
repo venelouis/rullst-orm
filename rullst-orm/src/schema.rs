@@ -565,6 +565,7 @@ pub struct JoinClause {
     pub table: String,
     pub conditions: Vec<String>,
     pub bindings: Vec<crate::RullstValue>,
+    pub errors: Vec<crate::Error>,
 }
 
 impl JoinClause {
@@ -573,27 +574,26 @@ impl JoinClause {
             table: table.to_string(),
             conditions: vec![],
             bindings: vec![],
+            errors: vec![],
         }
     }
 
     /// Adds a column-to-column JOIN condition.
     ///
-    /// # Panics
-    /// Panics if `first` or `second` are not valid SQL identifiers (alphanumeric,
-    /// underscores, hyphens, or a single qualifying dot), or if `operator` is not
-    /// one of: `=`, `!=`, `<>`, `<`, `>`, `<=`, `>=`.
     /// This prevents SQL injection — column names should always be hardcoded, never
-    /// derived from user input.
+    /// derived from user input. Returns errors internally rather than panicking.
     pub fn on(&mut self, first: &str, operator: &str, second: &str) -> &mut Self {
-        validate_identifier(first)
-            .unwrap_or_else(|e| panic!("JoinClause::on — invalid identifier for `first`: {}", e));
-        validate_identifier(second)
-            .unwrap_or_else(|e| panic!("JoinClause::on — invalid identifier for `second`: {}", e));
+        if let Err(e) = validate_identifier(first) {
+            self.errors.push(crate::Error::Validation(format!("JoinClause::on — invalid identifier for `first`: {:?}", e)));
+        }
+        if let Err(e) = validate_identifier(second) {
+            self.errors.push(crate::Error::Validation(format!("JoinClause::on — invalid identifier for `second`: {:?}", e)));
+        }
         if !ALLOWED_OPERATORS.contains(&operator) {
-            panic!(
+            self.errors.push(crate::Error::Validation(format!(
                 "JoinClause::on — invalid operator '{}'. Allowed: {:?}",
                 operator, ALLOWED_OPERATORS
-            );
+            )));
         }
         self.conditions
             .push(format!("{} {} {}", first, operator, second));
@@ -601,6 +601,9 @@ impl JoinClause {
     }
 
     pub fn on_eq<T: Into<crate::RullstValue>>(&mut self, column: &str, value: T) -> &mut Self {
+        if let Err(e) = validate_identifier(column) {
+            self.errors.push(crate::Error::Validation(format!("JoinClause::on_eq — invalid identifier for `column`: {:?}", e)));
+        }
         self.conditions.push(format!("{} = ?", column));
         self.bindings.push(value.into());
         self
@@ -670,20 +673,30 @@ mod tests {
         assert!(validate_identifier("users.posts.id").is_err()); // two dots
         assert!(validate_identifier("DROP TABLE users").is_err());
         assert!(validate_identifier("id; DROP TABLE users--").is_err());
+        // Edge cases
+        assert!(validate_identifier(".").is_ok()); // Valid character, but semantically bad. But our validator allows it.
+        assert!(validate_identifier(".users").is_ok());
+        assert!(validate_identifier("users.").is_ok());
+        assert!(validate_identifier("user name").is_err()); // Spaces not allowed
+        assert!(validate_identifier("admin'--").is_err()); // Quotes not allowed
+        assert!(validate_identifier("users()").is_err()); // Parentheses not allowed
+        assert!(validate_identifier("a*b").is_err()); // Asterisk not allowed
     }
 
     #[test]
-    #[should_panic(expected = "invalid operator")]
     fn test_join_clause_on_invalid_operator() {
         let mut jc = JoinClause::new("posts");
         jc.on("posts.user_id", "OR 1=1 --", "users.id");
+        assert!(!jc.errors.is_empty());
+        assert!(jc.errors[0].to_string().contains("invalid operator"));
     }
 
     #[test]
-    #[should_panic(expected = "invalid identifier")]
     fn test_join_clause_on_invalid_column() {
         let mut jc = JoinClause::new("posts");
         jc.on("users.id; DROP TABLE users--", "=", "posts.user_id");
+        assert!(!jc.errors.is_empty());
+        assert!(jc.errors[0].to_string().contains("invalid identifier"));
     }
 
     #[test]
@@ -735,5 +748,28 @@ mod tests {
             jc.to_sql(),
             "posts.user_id = users.id AND posts.status > users.min_status"
         );
+    }
+
+    #[test]
+    fn test_column_builder_methods() {
+        let mut col = Column::new("age", "INTEGER");
+        assert_eq!(col.name, "age");
+        assert_eq!(col.col_type, "INTEGER");
+        assert!(col.is_nullable); // default is true
+        assert!(!col.is_primary_key);
+        assert!(!col.is_auto_increment);
+        assert_eq!(col.default_value, None);
+
+        col.not_null();
+        assert!(!col.is_nullable);
+
+        col.nullable();
+        assert!(col.is_nullable);
+
+        col.primary();
+        assert!(col.is_primary_key);
+
+        col.default("18");
+        assert_eq!(col.default_value, Some("18".to_string()));
     }
 }

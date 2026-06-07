@@ -56,16 +56,23 @@ async fn main() -> Result<(), rullst_orm::Error> {
     let all_users = rullst_orm::_sqlx::query_as::<_, User>("SELECT * FROM users")
         .fetch_all(primary_pool)
         .await?;
-    for user in all_users {
-        for pool in &[&r1_pool, &r2_pool] {
-            rullst_orm::_sqlx::query("INSERT INTO users (id, name, email) VALUES (?, ?, ?)")
-                .bind(user.id)
-                .bind(&user.name)
-                .bind(&user.email)
-                .execute(*pool)
-                .await?;
-        }
+    
+    let mut replication_futures = vec![];
+    for user in &all_users {
+        let q1 = rullst_orm::_sqlx::query("INSERT INTO users (id, name, email) VALUES (?, ?, ?)")
+            .bind(user.id)
+            .bind(user.name.clone())
+            .bind(user.email.clone())
+            .execute(&r1_pool);
+        let q2 = rullst_orm::_sqlx::query("INSERT INTO users (id, name, email) VALUES (?, ?, ?)")
+            .bind(user.id)
+            .bind(user.name.clone())
+            .bind(user.email.clone())
+            .execute(&r2_pool);
+        replication_futures.push(q1);
+        replication_futures.push(q2);
     }
+    rullst_orm::_futures::future::try_join_all(replication_futures).await?;
 
     // Enable query logging to visualize connection/query details
     Orm::enable_query_log();
