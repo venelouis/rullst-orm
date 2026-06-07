@@ -232,35 +232,44 @@ impl Orm {
         Ok(())
     }
 
-    /// Retrieve the global database connection pool (strictly for writes)
-    pub fn pool() -> &'static RullstPool {
-        DB_POOL
-            .get()
-            .expect("Orm must be initialized before querying")
+    /// Retrieve the global database connection pool (strictly for writes).
+    /// Returns `Err(Error::Internal)` if `Orm::init()` has not been called yet.
+    pub fn pool() -> Result<&'static RullstPool, crate::Error> {
+        DB_POOL.get().ok_or_else(|| {
+            crate::Error::Internal(
+                "Orm::init() must be called before any database operation".to_string(),
+            )
+        })
     }
 
     /// Retrieve the connection pool for read operations.
-    /// Performs a round-robin load balancing over replicas if configured.
-    pub fn read_pool() -> &'static RullstPool {
-        if let Some(replicas) = REPLICA_POOLS.get()
-            && !replicas.is_empty()
-        {
-            let idx = REPLICA_INDEX.fetch_add(1, Ordering::Relaxed) % replicas.len();
-            return &replicas[idx];
+    /// Performs round-robin load balancing over replicas if configured.
+    /// Returns `Err(Error::Internal)` if `Orm::init()` has not been called yet.
+    pub fn read_pool() -> Result<&'static RullstPool, crate::Error> {
+        if let Some(replicas) = REPLICA_POOLS.get() {
+            if !replicas.is_empty() {
+                let idx = REPLICA_INDEX.fetch_add(1, Ordering::Relaxed) % replicas.len();
+                return Ok(&replicas[idx]);
+            }
         }
         Self::pool()
     }
 
-    /// Retrieve the active driver string
-    pub fn driver() -> &'static str {
+    /// Retrieve the active driver string ("postgres", "mysql", or "sqlite").
+    /// Returns `Err(Error::Internal)` if `Orm::init()` has not been called yet.
+    pub fn driver() -> Result<&'static str, crate::Error> {
         DB_DRIVER
             .get()
-            .expect("Orm must be initialized before querying")
-            .as_str()
+            .map(|s| s.as_str())
+            .ok_or_else(|| {
+                crate::Error::Internal(
+                    "Orm::init() must be called before any database operation".to_string(),
+                )
+            })
     }
 
     pub async fn begin_transaction() -> Result<crate::db::Transaction<'static>, crate::Error> {
-        let pool = Self::pool();
+        let pool = Self::pool()?;
         pool.begin().await.map_err(Into::into)
     }
 
@@ -292,21 +301,29 @@ impl Orm {
         Ok(())
     }
 
-    /// Get reference to the global Redis client
+    /// Get reference to the global Redis client.
+    /// Returns `Err(Error::Internal)` if `Orm::init_redis()` has not been called yet.
     #[cfg(feature = "redis")]
-    pub fn redis_client() -> &'static _redis::Client {
-        REDIS_CLIENT
-            .get()
-            .expect("Redis must be initialized before using cache features")
+    pub fn redis_client() -> Result<&'static _redis::Client, crate::Error> {
+        REDIS_CLIENT.get().ok_or_else(|| {
+            crate::Error::Internal(
+                "Orm::init_redis() must be called before using cache features".to_string(),
+            )
+        })
     }
 
-    /// Get clone of the thread-safe connection manager for async Redis queries
+    /// Get clone of the thread-safe connection manager for async Redis queries.
+    /// Returns `Err(Error::Internal)` if `Orm::init_redis()` has not been called yet.
     #[cfg(feature = "redis")]
-    pub fn redis_manager() -> _redis::aio::ConnectionManager {
+    pub fn redis_manager() -> Result<_redis::aio::ConnectionManager, crate::Error> {
         REDIS_MANAGER
             .get()
-            .expect("Redis must be initialized before using cache features")
-            .clone()
+            .cloned()
+            .ok_or_else(|| {
+                crate::Error::Internal(
+                    "Orm::init_redis() must be called before using cache features".to_string(),
+                )
+            })
     }
 }
 

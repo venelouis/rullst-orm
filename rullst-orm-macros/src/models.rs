@@ -212,7 +212,7 @@ fn generate_search_method(parsed: &ParsedModel, builder_name: &syn::Ident) -> To
                 return base_builder;
             }
 
-            let driver = rullst_orm::Orm::driver();
+            let driver = rullst_orm::Orm::driver().unwrap_or("sqlite");
             let cast_type = if driver == "mysql" { "CHAR" } else { "TEXT" };
             let like_query = format!("%{}%", query);
             let cols = vec![#(#cols),*];
@@ -309,8 +309,8 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
     let audit_before_update = if parsed.auditable {
         quote! {
             let old_model_for_audit = if !is_new {
-                let pool = rullst_orm::Orm::read_pool();
-                let driver = rullst_orm::Orm::driver();
+                let pool = rullst_orm::Orm::read_pool()?;
+                let driver = rullst_orm::Orm::driver()?;
                 let query = if driver == "postgres" {
                     format!("SELECT * FROM {} WHERE id = $1", #table_name)
                 } else {
@@ -389,7 +389,7 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
 
     quote! {
         pub async fn save(&mut self) -> Result<(), rullst_orm::Error> {
-            let pool = rullst_orm::Orm::pool();
+            let pool = rullst_orm::Orm::pool()?;
             self.save_with_tx_internal(pool).await
         }
 
@@ -417,7 +417,7 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
                 for obs in &observers {
                     obs.creating(self).await?;
                 }
-                let driver = rullst_orm::Orm::driver();
+                let driver = rullst_orm::Orm::driver()?;
                 if driver == "postgres" || driver == "sqlite" {
                     use rullst_orm::_sqlx::Execute;
                     let mut final_sql = format!("INSERT INTO {} ({}) VALUES ({}) RETURNING id", #table_name, #insert_columns_str, #insert_placeholders_str);
@@ -468,7 +468,7 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
                 }
                 use rullst_orm::_sqlx::Execute;
                 let mut final_sql = format!("UPDATE {} SET {} WHERE id = ?", #table_name, #update_sets_str);
-                if rullst_orm::Orm::driver() == "postgres" {
+                if rullst_orm::Orm::driver()? == "postgres" {
                     let mut replaced = String::with_capacity(final_sql.len());
                     let mut idx = 1;
                     for c in final_sql.chars() {
@@ -500,17 +500,18 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
             #[cfg(feature = "redis")]
             {
                 use rullst_orm::_redis::AsyncCommands;
-                let mut conn = rullst_orm::Orm::redis_manager();
                 let payload = self.to_json();
-                if is_new {
-                    let topic = format!("orm:events:{}:created", #table_name);
-                    let _: Result<usize, _> = conn.publish(&topic, &payload).await;
-                } else {
-                    let topic = format!("orm:events:{}:updated", #table_name);
+                if let Ok(mut conn) = rullst_orm::Orm::redis_manager() {
+                    if is_new {
+                        let topic = format!("orm:events:{}:created", #table_name);
+                        let _: Result<usize, _> = conn.publish(&topic, &payload).await;
+                    } else {
+                        let topic = format!("orm:events:{}:updated", #table_name);
+                        let _: Result<usize, _> = conn.publish(&topic, &payload).await;
+                    }
+                    let topic = format!("orm:events:{}:saved", #table_name);
                     let _: Result<usize, _> = conn.publish(&topic, &payload).await;
                 }
-                let topic = format!("orm:events:{}:saved", #table_name);
-                let _: Result<usize, _> = conn.publish(&topic, &payload).await;
             }
             #audit_after_save
             #scout_update
@@ -564,7 +565,7 @@ fn generate_delete_methods(parsed: &ParsedModel) -> TokenStream {
 
     let delete_logic = if has_soft_deletes {
         quote! {
-            let driver = rullst_orm::Orm::driver();
+            let driver = rullst_orm::Orm::driver()?;
             let query = if driver == "postgres" {
                 format!("UPDATE {} SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1", #table_name)
             } else {
@@ -573,7 +574,7 @@ fn generate_delete_methods(parsed: &ParsedModel) -> TokenStream {
         }
     } else {
         quote! {
-            let driver = rullst_orm::Orm::driver();
+            let driver = rullst_orm::Orm::driver()?;
             let query = if driver == "postgres" {
                 format!("DELETE FROM {} WHERE id = $1", #table_name)
             } else {
@@ -584,7 +585,7 @@ fn generate_delete_methods(parsed: &ParsedModel) -> TokenStream {
 
     quote! {
         pub async fn delete(&self) -> Result<(), rullst_orm::Error> {
-            let pool = rullst_orm::Orm::pool();
+            let pool = rullst_orm::Orm::pool()?;
             self.delete_with_tx_internal(pool).await
         }
 
@@ -614,10 +615,11 @@ fn generate_delete_methods(parsed: &ParsedModel) -> TokenStream {
             #[cfg(feature = "redis")]
             {
                 use rullst_orm::_redis::AsyncCommands;
-                let mut conn = rullst_orm::Orm::redis_manager();
                 let payload = self.to_json();
                 let topic = format!("orm:events:{}:deleted", #table_name);
-                let _: Result<usize, _> = conn.publish(&topic, &payload).await;
+                if let Ok(mut conn) = rullst_orm::Orm::redis_manager() {
+                    let _: Result<usize, _> = conn.publish(&topic, &payload).await;
+                }
             }
             #audit_after_delete
             #scout_delete
@@ -627,11 +629,11 @@ fn generate_delete_methods(parsed: &ParsedModel) -> TokenStream {
 
         pub async fn restore(&self) -> Result<(), rullst_orm::Error> {
             if #has_soft_deletes {
-                let pool = rullst_orm::Orm::pool();
+                let pool = rullst_orm::Orm::pool()?;
                 use rullst_orm::_sqlx::query_builder::QueryBuilder;
                 let mut query_builder = QueryBuilder::new("UPDATE ");
                 query_builder.push(#table_name);
-                if rullst_orm::Orm::driver() == "postgres" {
+                if rullst_orm::Orm::driver()? == "postgres" {
                     query_builder.push(" SET deleted_at = NULL WHERE id = $1");
                 } else {
                     query_builder.push(" SET deleted_at = NULL WHERE id = ?");
@@ -643,11 +645,11 @@ fn generate_delete_methods(parsed: &ParsedModel) -> TokenStream {
         }
 
         pub async fn force_delete(&self) -> Result<(), rullst_orm::Error> {
-            let pool = rullst_orm::Orm::pool();
+            let pool = rullst_orm::Orm::pool()?;
             use rullst_orm::_sqlx::query_builder::QueryBuilder;
             let mut query_builder = QueryBuilder::new("DELETE FROM ");
             query_builder.push(#table_name);
-            if rullst_orm::Orm::driver() == "postgres" {
+            if rullst_orm::Orm::driver()? == "postgres" {
                 query_builder.push(" WHERE id = $1");
             } else {
                 query_builder.push(" WHERE id = ?");

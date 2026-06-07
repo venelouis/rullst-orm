@@ -562,7 +562,7 @@ pub fn generate(
                     sql.push_str(&offset.to_string());
                 }
 
-                if rullst_orm::Orm::driver() == "postgres" {
+                if rullst_orm::Orm::driver().unwrap_or("sqlite") == "postgres" {
                     let mut pg_sql = String::with_capacity(sql.len());
                     let mut param_idx = 1;
                     for c in sql.chars() {
@@ -604,7 +604,7 @@ fn generate_execution_methods(parsed: &ParsedModel, _builder_name: &syn::Ident, 
 
     vec![quote! {
 pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
-                let pool = rullst_orm::Orm::read_pool();
+                let pool = rullst_orm::Orm::read_pool()?;
                 self.get_with_tx_internal(pool).await
             }
 
@@ -622,13 +622,14 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
                     if let Some(ttl) = self.remember_ttl {
                         use rullst_orm::_redis::AsyncCommands;
                         let cache_key = format!("orm:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
-                        let mut conn = rullst_orm::Orm::redis_manager();
-                        if let Ok(cached_data) = conn.get::<_, String>(&cache_key).await {
-                            if !cached_data.is_empty() {
-                                if let Ok(mut results) = #name::from_cache_json_array(&cached_data) {
-                                    #hook_after_fetch
-                                    #eager_loads
-                                    return Ok(results);
+                        if let Ok(mut conn) = rullst_orm::Orm::redis_manager() {
+                            if let Ok(cached_data) = conn.get::<_, String>(&cache_key).await {
+                                if !cached_data.is_empty() {
+                                    if let Ok(mut results) = #name::from_cache_json_array(&cached_data) {
+                                        #hook_after_fetch
+                                        #eager_loads
+                                        return Ok(results);
+                                    }
                                 }
                             }
                         }
@@ -657,8 +658,9 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
                         use rullst_orm::_redis::AsyncCommands;
                         let cache_key = format!("orm:cache:{}:{:?}", #table_name, (&query_str, &self.bindings));
                         let serialized = #name::to_cache_json_array(&results);
-                        let mut conn = rullst_orm::Orm::redis_manager();
-                        let _: Result<(), rullst_orm::_redis::RedisError> = conn.set_ex(&cache_key, serialized, ttl as u64).await;
+                        if let Ok(mut conn) = rullst_orm::Orm::redis_manager() {
+                            let _: Result<(), rullst_orm::_redis::RedisError> = conn.set_ex(&cache_key, serialized, ttl as u64).await;
+                        }
                     }
                 }
 
@@ -703,7 +705,7 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
                 if rullst_orm::schema::is_query_log_enabled() {
                     println!("[SQL Debug] {:?} | Bindings: {:?}", query_str, total_builder.bindings);
                 }
-                let pool = rullst_orm::Orm::read_pool();
+                let pool = rullst_orm::Orm::read_pool()?;
                 let total_row: (i64,) = {
                     let mut query = rullst_orm::_sqlx::query_as::<_, (i64,)>(rullst_orm::_sqlx::AssertSqlSafe(query_str.as_str()));
                     for binding in &total_builder.bindings {
@@ -736,7 +738,7 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
             }
 
             pub async fn count(&self) -> Result<i64, rullst_orm::Error> {
-                let pool = rullst_orm::Orm::read_pool();
+                let pool = rullst_orm::Orm::read_pool()?;
                 let mut builder = self.clone();
                 builder.selects = Some("COUNT(*)".to_string());
                 builder.limit = None;
@@ -803,7 +805,7 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
             }
 
             pub async fn delete_all(&self) -> Result<u64, rullst_orm::Error> {
-                let pool = rullst_orm::Orm::pool();
+                let pool = rullst_orm::Orm::pool()?;
                 self.delete_all_with_tx_internal(pool).await
             }
 
@@ -845,7 +847,7 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
             }
 
             pub async fn pluck_string(&self, column: &str) -> Result<Vec<String>, rullst_orm::Error> {
-                let pool = rullst_orm::Orm::read_pool();
+                let pool = rullst_orm::Orm::read_pool()?;
                 let mut builder = self.clone();
                 builder.selects = Some(column.to_string());
                 let query_str = builder.to_sql();
@@ -865,7 +867,7 @@ pub async fn get(&self) -> Result<Vec<#name>, rullst_orm::Error> {
             }
 
             pub async fn pluck_i32(&self, column: &str) -> Result<Vec<i32>, rullst_orm::Error> {
-                let pool = rullst_orm::Orm::read_pool();
+                let pool = rullst_orm::Orm::read_pool()?;
                 let mut builder = self.clone();
                 builder.selects = Some(column.to_string());
                 let query_str = builder.to_sql();

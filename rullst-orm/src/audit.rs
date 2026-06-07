@@ -19,8 +19,8 @@ pub async fn log_audit(
     old_values: Option<String>,
     new_values: Option<String>,
 ) -> Result<(), crate::Error> {
-    let pool = Orm::pool();
-    let driver = Orm::driver();
+    let pool = Orm::pool()?;
+    let driver = Orm::driver()?;
 
     if driver == "postgres" {
         sqlx::query(
@@ -94,8 +94,8 @@ pub async fn log_audit_diff(
 }
 
 pub async fn create_audit_table() -> Result<(), crate::Error> {
-    let pool = Orm::pool();
-    let driver = Orm::driver();
+    let pool = Orm::pool()?;
+    let driver = Orm::driver()?;
 
     let query = if driver == "postgres" {
         r#"

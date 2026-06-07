@@ -206,7 +206,7 @@ impl Schema {
             table_name, columns_sql
         );
 
-        let pool = crate::Orm::pool();
+        let pool = crate::Orm::pool()?;
         let mut query_builder = sqlx::query_builder::QueryBuilder::new("");
         query_builder.push(&sql);
         query_builder.build().execute(pool).await?;
@@ -218,7 +218,7 @@ impl Schema {
         validate_table_name(table_name)?;
 
         let sql = format!("DROP TABLE IF EXISTS {};", table_name);
-        let pool = crate::Orm::pool();
+        let pool = crate::Orm::pool()?;
         let mut query_builder = sqlx::query_builder::QueryBuilder::new("");
         query_builder.push(&sql);
         query_builder.build().execute(pool).await?;
@@ -289,8 +289,8 @@ pub async fn run_artisan(
 }
 
 async fn status_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Error> {
-    let pool = crate::Orm::pool();
-    let driver = crate::Orm::driver();
+    let pool = crate::Orm::pool()?;
+    let driver = crate::Orm::driver()?;
 
     let table_exists = match driver {
         "postgres" | "mysql" => {
@@ -431,8 +431,8 @@ fn regenerate_migrations_mod() -> Result<(), Error> {
 }
 
 async fn run_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Error> {
-    let pool = crate::Orm::pool();
-    let driver = crate::Orm::driver();
+    let pool = crate::Orm::pool()?;
+    let driver = crate::Orm::driver()?;
 
     let query_str = match driver {
         "postgres" => {
@@ -495,8 +495,8 @@ async fn run_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Error
 }
 
 async fn rollback_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Error> {
-    let pool = crate::Orm::pool();
-    let driver = crate::Orm::driver();
+    let pool = crate::Orm::pool()?;
+    let driver = crate::Orm::driver()?;
 
     let table_exists = match driver {
         "postgres" | "mysql" => {

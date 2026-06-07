@@ -35,6 +35,7 @@ In traditional Rust database handling, you write raw SQL, manage connection pool
 ## 📚 Documentation & Planning
 
 - **[Changelog](https://github.com/venelouis/rullst-orm/blob/main/CHANGELOG.md)**: Detailed release history.
+- **[ISSUES](https://github.com/venelouis/rullst-orm/issues)**: Any issues? Please report.
 - **[Spec](https://github.com/venelouis/rullst-orm/blob/main/docs/spec.md)**: Single Source of Truth for macros, API, and architecture.
 - **[Getting Started](https://github.com/venelouis/rullst-orm/blob/main/docs/1-getting-started.md)**: Step-by-step first model and queries.
 - **[Admin Panel](https://github.com/venelouis/rullst-orm/blob/main/docs/2-admin-panel.md)**: Serving the built-in dashboard.

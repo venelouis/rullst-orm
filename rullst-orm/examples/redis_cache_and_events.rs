@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::File::create("products_demo.db")?;
 
     Orm::init("sqlite://products_demo.db").await?;
-    let pool = Orm::pool();
+    let pool = Orm::pool()?;
 
     rullst_orm::_sqlx::query(
         "CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price REAL NOT NULL)"
@@ -43,23 +43,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // 3. Spawn a background thread to subscribe to all product events and print them
         tokio::spawn(async move {
-            let client = Orm::redis_client();
-            if let Ok(mut conn) = client.get_connection() {
-                let mut pubsub = conn.as_pubsub();
-                let _ = pubsub.psubscribe("orm:events:products:*");
-                println!(
-                    "📡 Background Subscriber: Listening for products Pub/Sub events on Redis..."
-                );
-                loop {
-                    if let Ok(msg) = pubsub.get_message() {
-                        let channel: String = msg.get_channel_name().to_string();
-                        let payload: String = msg.get_payload().unwrap_or_default();
-                        println!(
-                            "🔔 [Pub/Sub Event] Received event on channel '{}': {}",
-                            channel, payload
-                        );
+            if let Ok(client) = Orm::redis_client() {
+                if let Ok(mut conn) = client.get_connection() {
+                    let mut pubsub = conn.as_pubsub();
+                    let _ = pubsub.psubscribe("orm:events:products:*");
+                    println!(
+                        "📡 Background Subscriber: Listening for products Pub/Sub events on Redis..."
+                    );
+                    loop {
+                        if let Ok(msg) = pubsub.get_message() {
+                            let channel: String = msg.get_channel_name().to_string();
+                            let payload: String = msg.get_payload().unwrap_or_default();
+                            println!(
+                                "🔔 [Pub/Sub Event] Received event on channel '{}': {}",
+                                channel, payload
+                            );
+                        }
+                        tokio::time::sleep(Duration::from_millis(50)).await;
                     }
-                    tokio::time::sleep(Duration::from_millis(50)).await;
                 }
             }
         });
