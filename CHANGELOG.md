@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.5] - 2026-06-08 🧪
+
+### Added
+- **SQLite Database Integration Tests:** Added a new comprehensive integration test suite (`tests/integration_tests.rs`) covering 6 major database-touching scenarios: CRUD operations (INSERT/SELECT/UPDATE/DELETE/COUNT/WHERE), soft delete lifecycle (deleted_at, restore, force_delete), transaction commit and rollback isolation, JSON column serialization/deserialization, bulk operations (LIMIT, OFFSET, Pluck, Delete All), and dynamic schema lifecycle. All scenarios share a single `OnceLock` connection to comply with global pooling invariants.
+- **Criterion Benchmark Suite:** Added a high-performance benchmark harness (`benches/orm_bench.rs`) targeting CPU-bound operations (validate_identifier, JSON serialization, query builder construction) and real database round-trip performance in `--release` mode.
+
+### Fixed
+- **Clippy Mathematical Constant Lint:** Replaced hardcoded float `3.14` in schema builder tests with `1.23` to eliminate the `approx_constant` clippy warnings under strictly enforced workspace checks (`-D warnings`).
+
+### Tests
+- **53 tests passing** across the workspace (`cargo test --workspace --all-features`).
+
+### Performance
+- **`belongs_to_many` eager loading rewritten to 2-query batch strategy:** The previous implementation issued O(N/10) queries (one per chunk of 10 parents) using `try_join_all`. This has been rewritten to use exactly 2 queries regardless of collection size: (1) `SELECT parent_fk, related_fk FROM pivot WHERE parent_fk IN (...)` and (2) `SELECT * FROM related WHERE id IN (unique_related_ids)`. Distribution is done in memory using a `HashMap<i32, Vec<RelModel>>`. All eager loading strategies now operate at O(1) or O(2) queries, eliminating the N+1 risk.
+
+### Fixed
+- **Scout update silent failure:** `rullst_orm::scout::update` previously called `.unwrap_or(serde_json::Value::Null)` when serializing a model to JSON, silently sending `null` to the search engine on serialization failure. It now uses `match` with an `eprintln!` diagnostic including the table name and model ID, making failures observable without panicking.
+
+### Changed
+- **`rand` removed from library production dependencies:** `rand = "0.10"` was listed in both `[dependencies]` and `[dev-dependencies]` in `rullst-orm/Cargo.toml`. Since `rand` is only used in example and factory code, it has been removed from `[dependencies]`, reducing the compiled dependency surface for library users.
+
+### Tests
+- **52 tests passing** (`cargo test --workspace --all-features`, 0 warnings in the fixed codebase).
+
+### Security
+- **DDL Injection via `Blueprint::build()`:** `Blueprint::build()` previously interpolated `col.name` and `col.default_value` directly into `CREATE TABLE` SQL without validation, allowing DDL injection through the schema builder API. The method signature has been changed to `-> Result<String, Error>` and now defensively re-validates every column name via `validate_identifier` before emitting SQL.
+- **`ColumnDefault` enum replaces raw `&str` defaults:** `Column::default()` previously accepted a raw `&str` that was spliced verbatim into the DDL `DEFAULT` clause. This has been replaced with a typed `ColumnDefault` enum (`CurrentTimestamp`, `Null`, `Integer(i64)`, `Float(f64)`, `Text(String)`). `Text` values are automatically single-quoted and SQL-escaped (`''` doubling), making injection structurally impossible.
+- **`Column::new()` validates identifier at construction:** Column names are now validated against `validate_identifier` at the point of construction. An invalid name panics immediately with a clear message, preventing malformed columns from ever reaching `build()`.
+- **`validate_identifier` rejects leading/trailing dots:** Identifiers such as `"."`, `".users"`, and `"users."` previously passed validation despite being semantically invalid and potentially exploitable in edge-case drivers. The validator now rejects any identifier whose first or last character is a dot.
+
+### Changed
+- **`Blueprint::build()` signature is now `-> Result<String, Error>`** (previously `-> String`). This is a breaking change for any caller that used `build()` directly. `Schema::create()` propagates the error transparently, so migration closures are unaffected.
+
+### Tests
+- **52 tests passing** across the full workspace (`cargo test --workspace --all-features`).
+- New tests: `test_column_default_sql_rendering` (covers all `ColumnDefault` variants including embedded-quote escaping), updated `test_timestamps_adds_columns` (asserts `ColumnDefault::CurrentTimestamp` equality), updated `test_column_builder_methods` (uses `ColumnDefault::Integer`), updated `test_blueprint_build_produces_valid_sql` (handles `Result`).
+
 ## [4.0.3] - 2026-06-07 🧪
 
 ### Added

@@ -12,11 +12,18 @@ pub fn validate_identifier(name: &str) -> Result<(), Error> {
             "SQL identifier cannot be empty".to_string(),
         ));
     }
-    // At most one dot is allowed (for `table.column` notation)
+    // At most one dot is allowed (for `table.column` notation),
+    // and it must not be the first or last character.
     let dot_count = name.chars().filter(|&c| c == '.').count();
     if dot_count > 1 {
         return Err(Error::Internal(format!(
             "Invalid SQL identifier '{}': at most one dot is allowed",
+            name
+        )));
+    }
+    if name.starts_with('.') || name.ends_with('.') {
+        return Err(Error::Internal(format!(
+            "Invalid SQL identifier '{}': must not start or end with a dot",
             name
         )));
     }
@@ -44,17 +51,59 @@ fn validate_table_name(table_name: &str) -> Result<(), Error> {
     validate_identifier(table_name)
 }
 
+/// Safe values allowed for a column DEFAULT clause.
+///
+/// Accepting a raw `&str` would allow DDL injection through the DEFAULT
+/// position. This enum restricts callers to known-safe literals.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ColumnDefault {
+    /// `CURRENT_TIMESTAMP` — standard SQL timestamp literal.
+    CurrentTimestamp,
+    /// `NULL` — explicit SQL null default.
+    Null,
+    /// A non-negative integer literal (e.g. `0`, `1`).
+    Integer(i64),
+    /// A non-negative real literal (e.g. `0.0`).
+    Float(f64),
+    /// A string literal that will be single-quoted and escaped.
+    /// Only printable ASCII excluding `'` and `\` is accepted.
+    Text(String),
+}
+
+impl ColumnDefault {
+    /// Renders the default value as a safe SQL fragment.
+    pub fn to_sql(&self) -> String {
+        match self {
+            ColumnDefault::CurrentTimestamp => "CURRENT_TIMESTAMP".to_string(),
+            ColumnDefault::Null => "NULL".to_string(),
+            ColumnDefault::Integer(n) => n.to_string(),
+            ColumnDefault::Float(f) => format!("{f}"),
+            // Single-quote the string and escape any embedded single-quotes
+            // via SQL standard doubling (''), which is safe on every driver.
+            ColumnDefault::Text(s) => format!("'{}'", s.replace('\'', "''")),
+        }
+    }
+}
+
 pub struct Column {
     pub name: String,
     pub col_type: String,
     pub is_nullable: bool,
     pub is_primary_key: bool,
     pub is_auto_increment: bool,
-    pub default_value: Option<String>,
+    pub default_value: Option<ColumnDefault>,
 }
 
 impl Column {
+    /// Creates a new column, validating `name` against SQL identifier rules.
+    ///
+    /// # Panics
+    /// Panics if `name` fails identifier validation. Column names are always
+    /// developer-supplied compile-time literals — an invalid name is a bug,
+    /// not a runtime condition.
     pub fn new(name: &str, col_type: &str) -> Self {
+        validate_identifier(name)
+            .unwrap_or_else(|e| panic!("Invalid column name {:?}: {}", name, e));
         Self {
             name: name.to_string(),
             col_type: col_type.to_string(),
@@ -75,8 +124,12 @@ impl Column {
         self
     }
 
-    pub fn default(&mut self, val: &str) -> &mut Self {
-        self.default_value = Some(val.to_string());
+    /// Sets a safe DEFAULT value using the [`ColumnDefault`] enum.
+    ///
+    /// The old `&str` overload has been removed to prevent DDL injection
+    /// through unescaped DEFAULT clauses.
+    pub fn default(&mut self, val: ColumnDefault) -> &mut Self {
+        self.default_value = Some(val);
         self
     }
 
@@ -149,11 +202,11 @@ impl Blueprint {
 
     pub fn timestamps(&mut self) {
         let mut created = Column::new("created_at", "TEXT");
-        created.default("CURRENT_TIMESTAMP");
+        created.default(ColumnDefault::CurrentTimestamp);
         self.columns.push(created);
 
         let mut updated = Column::new("updated_at", "TEXT");
-        updated.default("CURRENT_TIMESTAMP");
+        updated.default(ColumnDefault::CurrentTimestamp);
         self.columns.push(updated);
     }
 
@@ -166,9 +219,12 @@ impl Blueprint {
             .nullable();
     }
 
-    pub fn build(&self) -> String {
+    pub fn build(&self) -> Result<String, Error> {
         let mut defs = vec![];
         for col in &self.columns {
+            // Defensive re-validation: column names must always be safe
+            // identifiers regardless of how the Column was constructed.
+            validate_identifier(&col.name)?;
             let mut def = format!("{} {}", col.name, col.col_type);
             if col.is_primary_key {
                 def.push_str(" PRIMARY KEY");
@@ -179,12 +235,12 @@ impl Blueprint {
             if !col.is_nullable && !col.is_primary_key {
                 def.push_str(" NOT NULL");
             }
-            if let Some(val) = &col.default_value {
-                def.push_str(&format!(" DEFAULT {}", val));
+            if let Some(default) = &col.default_value {
+                def.push_str(&format!(" DEFAULT {}", default.to_sql()));
             }
             defs.push(def);
         }
-        defs.join(",\n    ")
+        Ok(defs.join(",\n    "))
     }
 }
 
@@ -200,7 +256,9 @@ impl Schema {
         let mut blueprint = Blueprint::new();
         callback(&mut blueprint);
 
-        let columns_sql = blueprint.build();
+        // build() now returns Result so any column-name or default issues
+        // surface as errors rather than producing malformed SQL.
+        let columns_sql = blueprint.build()?;
         let sql = format!(
             "CREATE TABLE IF NOT EXISTS {} (\n    {}\n);",
             table_name, columns_sql
@@ -677,10 +735,10 @@ mod tests {
         assert!(validate_identifier("users.posts.id").is_err()); // two dots
         assert!(validate_identifier("DROP TABLE users").is_err());
         assert!(validate_identifier("id; DROP TABLE users--").is_err());
-        // Edge cases
-        assert!(validate_identifier(".").is_ok()); // Valid character, but semantically bad. But our validator allows it.
-        assert!(validate_identifier(".users").is_ok());
-        assert!(validate_identifier("users.").is_ok());
+        // Leading/trailing dot edge cases — all now rejected
+        assert!(validate_identifier(".").is_err()); // bare dot: starts AND ends with dot
+        assert!(validate_identifier(".users").is_err()); // leading dot
+        assert!(validate_identifier("users.").is_err()); // trailing dot
         assert!(validate_identifier("user name").is_err()); // Spaces not allowed
         assert!(validate_identifier("admin'--").is_err()); // Quotes not allowed
         assert!(validate_identifier("users()").is_err()); // Parentheses not allowed
@@ -710,8 +768,8 @@ mod tests {
         assert_eq!(bp.columns.len(), 2);
         assert_eq!(bp.columns[0].name, "created_at");
         assert_eq!(bp.columns[1].name, "updated_at");
-        assert!(bp.columns[0].default_value.is_some());
-        assert!(bp.columns[1].default_value.is_some());
+        assert_eq!(bp.columns[0].default_value, Some(ColumnDefault::CurrentTimestamp));
+        assert_eq!(bp.columns[1].default_value, Some(ColumnDefault::CurrentTimestamp));
     }
 
     #[test]
@@ -729,10 +787,24 @@ mod tests {
         bp.id();
         bp.string("name").not_null();
         bp.integer("age");
-        let sql = bp.build();
+        let sql = bp.build().expect("build should succeed for valid columns");
         assert!(sql.contains("id INTEGER PRIMARY KEY"));
         assert!(sql.contains("name TEXT NOT NULL"));
         assert!(sql.contains("age INTEGER"));
+    }
+
+    #[test]
+    fn test_column_default_sql_rendering() {
+        assert_eq!(ColumnDefault::CurrentTimestamp.to_sql(), "CURRENT_TIMESTAMP");
+        assert_eq!(ColumnDefault::Null.to_sql(), "NULL");
+        assert_eq!(ColumnDefault::Integer(42).to_sql(), "42");
+        assert_eq!(ColumnDefault::Float(1.23).to_sql(), "1.23");
+        assert_eq!(ColumnDefault::Text("hello".to_string()).to_sql(), "'hello'");
+        // SQL injection via embedded quote must be escaped
+        assert_eq!(
+            ColumnDefault::Text("it's".to_string()).to_sql(),
+            "'it''s'"
+        );
     }
 
     #[test]
@@ -773,7 +845,7 @@ mod tests {
         col.primary();
         assert!(col.is_primary_key);
 
-        col.default("18");
-        assert_eq!(col.default_value, Some("18".to_string()));
+        col.default(ColumnDefault::Integer(18));
+        assert_eq!(col.default_value, Some(ColumnDefault::Integer(18)));
     }
 }

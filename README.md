@@ -16,7 +16,7 @@ Built on top of `sqlx` and procedural macros, **rullst-orm** aims to bring the d
 
 In traditional Rust database handling, you have to write raw SQL queries, manage connection pools manually across every function, and bind variables repetitively. Rullst ORM solves this by abstracting the heavy lifting behind a single `#[derive(Orm)]` macro. 
 
-**Rullst ORM v1.1.x** brings a massive array of enterprise-grade features:
+**Rullst ORM** brings a massive array of enterprise-grade features:
 - **Read/Write Connection Splitting** for automatic scaling.
 - **Integrated Redis Caching** to speed up repeating queries natively.
 - **Query Chunking** for memory-safe large dataset processing.
@@ -35,7 +35,7 @@ In traditional Rust database handling, you have to write raw SQL queries, manage
 Explore our project documentation, future plans, and recent updates:
 - **[Changelog](https://github.com/venelouis/rullst-orm/blob/main/CHANGELOG.md)**: Detailed release history and updates.
 - **[Roadmap](https://github.com/venelouis/rullst-orm/blob/main/ROADMAP.md)**: Current roadmap and goals for the library's future (including the Zero-Copy Architecture).
-- **[Security & Performance Audit](https://github.com/venelouis/rullst-orm/blob/main/NEW_AUDIT.md)**: Our latest complete 10/10 architecture audit and resolution notes.
+- **[Security & Performance Audit](https://github.com/venelouis/rullst-orm/blob/main/AUDIT.md)**: Our latest complete 10/10 architecture audit and resolution notes.
  - **[AI Agents & Automation](./AGENTS.md)**: Example prompts and recommended agent context for contributors and automation.
 
 ---

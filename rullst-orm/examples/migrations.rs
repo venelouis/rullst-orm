@@ -1,5 +1,5 @@
 use rullst_orm::Orm;
-use rullst_orm::schema::{Blueprint, Schema};
+use rullst_orm::schema::{Blueprint, ColumnDefault, Schema};
 
 #[tokio::main]
 async fn main() -> Result<(), rullst_orm::Error> {
@@ -15,8 +15,8 @@ async fn main() -> Result<(), rullst_orm::Error> {
         table.id(); // INTEGER PRIMARY KEY AUTOINCREMENT
         table.string("name").not_null();
         table.string("email").nullable();
-        table.integer("age").default("18");
-        table.boolean("is_active").default("1");
+        table.integer("age").default(ColumnDefault::Integer(18));
+        table.boolean("is_active").default(ColumnDefault::Integer(1));
         table.timestamps(); // created_at, updated_at
         table.soft_deletes(); // deleted_at
     })

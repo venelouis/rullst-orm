@@ -212,6 +212,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
         let local_key = &rel.local_key;
         let related_key = &rel.related_key;
         let morph_name = &rel.morph_name;
+        let pivot_table = &rel.pivot_table;
 
         let load_flag = quote::format_ident!("load_{}", field_name);
         let filter_flag = quote::format_ident!("filter_{}", field_name);
@@ -304,7 +305,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
         } else {
             let morph_type_ident = quote::format_ident!("{}_type", morph_name);
             let morph_id_ident = quote::format_ident!("{}_id", morph_name);
-            let method_name_constrained = quote::format_ident!("{}_constrained", field_name);
+            let _method_name_constrained = quote::format_ident!("{}_constrained", field_name);
 
             if rel_type == "morph_many" {
                 // Batch load: one query with WHERE morph_id IN (...) AND morph_type = 'Name'
@@ -365,24 +366,78 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                     }
                 }
             } else {
-                // belongs_to_many: batching requires a pivot-aware SQL rewrite;
-                // keep concurrent execution via try_join_all for now.
+                // Batch load belongs_to_many: 2 queries for any collection size.
+                // Q1: SELECT parent_fk, related_fk FROM pivot WHERE parent_fk IN (...)
+                // Q2: SELECT * FROM related_table WHERE id IN (unique_related_ids)
+                // Then distribute in memory. No N+1.
                 quote! {
                     if self.#load_flag {
-                        let mut all_related = Vec::with_capacity(results.len());
-                        for chunk in results.chunks(10) {
-                            let futures = chunk.iter().map(|model| {
-                                if let Some(ref filter) = self.#filter_flag {
-                                    model.#method_name_constrained(filter.clone())
-                                } else {
-                                    model.#method_name()
+                        let parent_ids: Vec<i32> = results.iter().map(|m| m.#lk_ident).collect();
+                        if !parent_ids.is_empty() {
+                            let pool = rullst_orm::Orm::read_pool();
+                            let driver = rullst_orm::Orm::driver();
+                            // Q1: pivot table pairs
+                            let placeholders_str = vec!["?"; parent_ids.len()].join(", ");
+                            let mut pivot_sql = format!(
+                                "SELECT {fk}, {rk} FROM {pt} WHERE {fk} IN ({ph})",
+                                fk = #foreign_key,
+                                rk = #related_key,
+                                pt = #pivot_table,
+                                ph = placeholders_str,
+                            );
+                            if driver == "postgres" {
+                                let mut pg = String::with_capacity(pivot_sql.len());
+                                let mut pg_idx = 1usize;
+                                for c in pivot_sql.chars() {
+                                    if c == '?' {
+                                        pg.push_str(&format!("${}", pg_idx));
+                                        pg_idx += 1;
+                                    } else {
+                                        pg.push(c);
+                                    }
                                 }
-                            });
-                            let chunk_results = rullst_orm::_futures::future::try_join_all(futures).await?;
-                            all_related.extend(chunk_results);
-                        }
-                        for (model, related) in results.iter_mut().zip(all_related.into_iter()) {
-                            model.#method_name = Some(related);
+                                pivot_sql = pg;
+                            }
+                            let mut pivot_query = rullst_orm::_sqlx::query_as::<_, (i32, i32)>(
+                                rullst_orm::_sqlx::AssertSqlSafe(pivot_sql.as_str())
+                            );
+                            for id in &parent_ids {
+                                pivot_query = pivot_query.bind(*id);
+                            }
+                            let pivot_pairs: Vec<(i32, i32)> = pivot_query.fetch_all(pool).await?;
+
+                            if !pivot_pairs.is_empty() {
+                                // Deduplicate related IDs for Q2
+                                let mut related_ids: Vec<i32> = pivot_pairs.iter().map(|(_, rid)| *rid).collect();
+                                related_ids.sort_unstable();
+                                related_ids.dedup();
+
+                                let mut query = #rel_model_ident::query().where_in("id", related_ids);
+                                if let Some(ref filter) = self.#filter_flag {
+                                    query = filter(query);
+                                }
+                                let all_related: Vec<#rel_model_ident> = Box::pin(query.get()).await?;
+
+                                // related_id -> model lookup
+                                let related_map: std::collections::HashMap<i32, #rel_model_ident> =
+                                    all_related.into_iter().map(|m| (m.id, m)).collect();
+
+                                // Build parent_id -> Vec<model> from pivot pairs
+                                let mut parent_to_related: std::collections::HashMap<i32, Vec<#rel_model_ident>> =
+                                    std::collections::HashMap::new();
+                                for (parent_id, related_id) in &pivot_pairs {
+                                    if let Some(m) = related_map.get(related_id) {
+                                        parent_to_related
+                                            .entry(*parent_id)
+                                            .or_insert_with(Vec::new)
+                                            .push(m.clone());
+                                    }
+                                }
+
+                                for model in &mut results {
+                                    model.#method_name = parent_to_related.remove(&model.#lk_ident);
+                                }
+                            }
                         }
                     }
                 }

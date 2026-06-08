@@ -355,7 +355,13 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
     let scout_update = if parsed.searchable {
         quote! {
             if let Some(engine) = rullst_orm::scout::get_search_engine() {
-                let payload: rullst_orm::_serde_json::Value = rullst_orm::_serde_json::from_str(&self.to_json()).unwrap_or(rullst_orm::_serde_json::Value::Null);
+                let payload: rullst_orm::_serde_json::Value = match rullst_orm::_serde_json::from_str(&self.to_json()) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("[rullst-orm] Scout: failed to serialize model {} (id={}) to JSON: {e}", #table_name, self.id);
+                        rullst_orm::_serde_json::Value::Null
+                    }
+                };
                 let _ = engine.update(#table_name, self.id, payload).await;
             }
         }
