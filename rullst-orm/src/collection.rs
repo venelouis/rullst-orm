@@ -10,7 +10,7 @@ pub trait RullstCollection<T> {
         K: Hash + Eq;
 
     /// Splits the collection into chunks of the given size
-        /// Maps each item using the given closure
+    /// Maps each item using the given closure
     fn map<U, F>(self, f: F) -> Vec<U>
     where
         F: FnMut(T) -> U;
@@ -64,7 +64,7 @@ impl<T> RullstCollection<T> for Vec<T> {
         map
     }
 
-        fn map<U, F>(self, f: F) -> Vec<U>
+    fn map<U, F>(self, f: F) -> Vec<U>
     where
         F: FnMut(T) -> U,
     {

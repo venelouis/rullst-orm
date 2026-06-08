@@ -46,10 +46,12 @@ mod tests {
             let _ = with_tenant("inner", async {
                 let inner_id = get_tenant_id();
                 assert!(matches!(inner_id, Some(RullstValue::String(ref s)) if s == "inner"));
-            }).await;
+            })
+            .await;
 
             let restored_outer_id = get_tenant_id();
             assert!(matches!(restored_outer_id, Some(RullstValue::String(ref s)) if s == "outer"));
-        }).await;
+        })
+        .await;
     }
 }

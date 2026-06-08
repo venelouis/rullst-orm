@@ -485,10 +485,10 @@ async fn run_migrations(migrations: Vec<Box<dyn Migration>>) -> Result<(), Error
     }
 
     if count > 0 {
-        let mut query_builder = sqlx::query_builder::QueryBuilder::new("INSERT INTO migrations (migration, batch) ");
+        let mut query_builder =
+            sqlx::query_builder::QueryBuilder::new("INSERT INTO migrations (migration, batch) ");
         query_builder.push_values(successful_migrations, |mut b, name| {
-            b.push_bind(name)
-             .push_bind(next_batch);
+            b.push_bind(name).push_bind(next_batch);
         });
         query_builder.build().execute(pool).await?;
     } else {
@@ -588,10 +588,16 @@ impl JoinClause {
     /// derived from user input. Returns errors internally rather than panicking.
     pub fn on(&mut self, first: &str, operator: &str, second: &str) -> &mut Self {
         if let Err(e) = validate_identifier(first) {
-            self.errors.push(crate::Error::Validation(format!("JoinClause::on — invalid identifier for `first`: {:?}", e)));
+            self.errors.push(crate::Error::Validation(format!(
+                "JoinClause::on — invalid identifier for `first`: {:?}",
+                e
+            )));
         }
         if let Err(e) = validate_identifier(second) {
-            self.errors.push(crate::Error::Validation(format!("JoinClause::on — invalid identifier for `second`: {:?}", e)));
+            self.errors.push(crate::Error::Validation(format!(
+                "JoinClause::on — invalid identifier for `second`: {:?}",
+                e
+            )));
         }
         if !ALLOWED_OPERATORS.contains(&operator) {
             self.errors.push(crate::Error::Validation(format!(
@@ -606,7 +612,10 @@ impl JoinClause {
 
     pub fn on_eq<T: Into<crate::RullstValue>>(&mut self, column: &str, value: T) -> &mut Self {
         if let Err(e) = validate_identifier(column) {
-            self.errors.push(crate::Error::Validation(format!("JoinClause::on_eq — invalid identifier for `column`: {:?}", e)));
+            self.errors.push(crate::Error::Validation(format!(
+                "JoinClause::on_eq — invalid identifier for `column`: {:?}",
+                e
+            )));
         }
         self.conditions.push(format!("{} = ?", column));
         self.bindings.push(value.into());

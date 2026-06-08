@@ -27,7 +27,7 @@ pub fn generate(parsed: &ParsedModel, relationship_methods: &[TokenStream]) -> T
 
         impl #name {
             #(#relationship_methods)*
-            
+
             #json_methods
 
             pub fn observe(observer: std::sync::Arc<dyn #observer_trait_name + Send + Sync>) {
@@ -53,7 +53,7 @@ fn generate_column_enum(parsed: &ParsedModel) -> TokenStream {
     let name = &parsed.name;
     let normal_fields = &parsed.normal_fields;
     let column_enum_name = quote::format_ident!("{}Column", name);
-    
+
     let column_variants: Vec<_> = normal_fields
         .iter()
         .map(|ident| {

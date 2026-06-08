@@ -54,11 +54,10 @@ async fn main() -> Result<(), rullst_orm::Error> {
     ];
 
     let pool = Orm::pool();
-    let mut query_builder = rullst_orm::_sqlx::QueryBuilder::new("INSERT INTO products (name, price, category) ");
+    let mut query_builder =
+        rullst_orm::_sqlx::QueryBuilder::new("INSERT INTO products (name, price, category) ");
     query_builder.push_values(products.into_iter(), |mut b, p| {
-        b.push_bind(p.name)
-         .push_bind(p.price)
-         .push_bind(p.category);
+        b.push_bind(p.name).push_bind(p.price).push_bind(p.category);
     });
     query_builder.build().execute(pool).await?;
 

@@ -120,9 +120,19 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     let fields = match &input.data {
         Data::Struct(data_struct) => match &data_struct.fields {
             Fields::Named(fields_named) => &fields_named.named,
-            _ => return Err(syn::Error::new_spanned(input, "Orm macro only supports structs with named fields")),
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    input,
+                    "Orm macro only supports structs with named fields",
+                ));
+            }
         },
-        _ => return Err(syn::Error::new_spanned(input, "Orm macro can only be used on structs")),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "Orm macro can only be used on structs",
+            ));
+        }
     };
 
     let mut normal_fields = vec![];

@@ -51,11 +51,11 @@ async fn main() -> Result<(), rullst_orm::Error> {
             email: format!("user{}@cosmos.com", i),
         });
     }
-    
-    let mut query_builder = rullst_orm::_sqlx::QueryBuilder::new("INSERT INTO users (name, email) ");
+
+    let mut query_builder =
+        rullst_orm::_sqlx::QueryBuilder::new("INSERT INTO users (name, email) ");
     query_builder.push_values(users.into_iter(), |mut b, user| {
-        b.push_bind(user.name)
-         .push_bind(user.email);
+        b.push_bind(user.name).push_bind(user.email);
     });
     query_builder.build().execute(primary_pool).await?;
 
@@ -63,25 +63,26 @@ async fn main() -> Result<(), rullst_orm::Error> {
     let all_users = rullst_orm::_sqlx::query_as::<_, User>("SELECT * FROM users")
         .fetch_all(primary_pool)
         .await?;
-    
+
     let mut qb1 = rullst_orm::_sqlx::QueryBuilder::new("INSERT INTO users (id, name, email) ");
     qb1.push_values(all_users.iter(), |mut b, user| {
         b.push_bind(user.id)
-         .push_bind(user.name.clone())
-         .push_bind(user.email.clone());
+            .push_bind(user.name.clone())
+            .push_bind(user.email.clone());
     });
-    
+
     let mut qb2 = rullst_orm::_sqlx::QueryBuilder::new("INSERT INTO users (id, name, email) ");
     qb2.push_values(all_users.iter(), |mut b, user| {
         b.push_bind(user.id)
-         .push_bind(user.name.clone())
-         .push_bind(user.email.clone());
+            .push_bind(user.name.clone())
+            .push_bind(user.email.clone());
     });
 
     rullst_orm::_futures::future::try_join(
         qb1.build().execute(&r1_pool),
-        qb2.build().execute(&r2_pool)
-    ).await?;
+        qb2.build().execute(&r2_pool),
+    )
+    .await?;
 
     // Enable query logging to visualize connection/query details
     Orm::enable_query_log();
