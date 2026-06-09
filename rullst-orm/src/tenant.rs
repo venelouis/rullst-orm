@@ -54,4 +54,16 @@ mod tests {
         })
         .await;
     }
+
+    #[tokio::test]
+    async fn test_with_tenant_panic_cleanup() {
+        let result = tokio::spawn(async {
+            with_tenant("faulty_tenant", async {
+                panic!("Something went wrong!");
+            }).await;
+        }).await;
+        
+        assert!(result.is_err());
+        assert!(get_tenant_id().is_none());
+    }
 }

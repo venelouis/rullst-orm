@@ -235,15 +235,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         let mut all_related = Box::pin(query.get()).await?;
 
                         for model in &mut results {
-                            let mut matching = vec![];
-                            let mut remaining = Vec::with_capacity(all_related.len());
-                            for related in all_related {
-                                if related.#fk_ident == model.#lk_ident {
-                                    matching.push(related);
-                                } else {
-                                    remaining.push(related);
-                                }
-                            }
+                            let (matching, remaining): (Vec<_>, Vec<_>) = all_related.into_iter().partition(|related| related.#fk_ident == model.#lk_ident);
                             all_related = remaining;
                             model.#method_name = Some(matching);
                         }
@@ -262,15 +254,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         let mut all_related = Box::pin(query.get()).await?;
 
                         for model in &mut results {
-                            let mut matching = None;
-                            let mut i = 0;
-                            while i < all_related.len() {
-                                if all_related[i].#fk_ident == model.#lk_ident {
-                                    matching = Some(all_related.swap_remove(i));
-                                    break;
-                                }
-                                i += 1;
-                            }
+                            let matching = all_related.iter().position(|r| r.#fk_ident == model.#lk_ident).map(|i| all_related.swap_remove(i));
                             model.#method_name = matching;
                         }
                     }
@@ -288,15 +272,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         let mut all_related = Box::pin(query.get()).await?;
 
                         for model in &mut results {
-                            let mut matching = None;
-                            let mut i = 0;
-                            while i < all_related.len() {
-                                if all_related[i].#pk_ident == model.#fk_ident {
-                                    matching = Some(all_related.swap_remove(i));
-                                    break;
-                                }
-                                i += 1;
-                            }
+                            let matching = all_related.iter().position(|r| r.#pk_ident == model.#fk_ident).map(|i| all_related.swap_remove(i));
                             model.#method_name = matching;
                         }
                     }
@@ -322,15 +298,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             }
                             let mut all_related = Box::pin(query.get()).await?;
                             for model in &mut results {
-                                let mut matching = vec![];
-                                let mut remaining = Vec::with_capacity(all_related.len());
-                                for related in all_related {
-                                    if related.#morph_id_ident == model.#lk_ident {
-                                        matching.push(related);
-                                    } else {
-                                        remaining.push(related);
-                                    }
-                                }
+                                let (matching, remaining): (Vec<_>, Vec<_>) = all_related.into_iter().partition(|related| related.#morph_id_ident == model.#lk_ident);
                                 all_related = remaining;
                                 model.#method_name = Some(matching);
                             }
@@ -351,15 +319,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             }
                             let mut all_related = Box::pin(query.get()).await?;
                             for model in &mut results {
-                                let mut matching = None;
-                                let mut i = 0;
-                                while i < all_related.len() {
-                                    if all_related[i].#morph_id_ident == model.#lk_ident {
-                                        matching = Some(all_related.swap_remove(i));
-                                        break;
-                                    }
-                                    i += 1;
-                                }
+                                let matching = all_related.iter().position(|r| r.#morph_id_ident == model.#lk_ident).map(|i| all_related.swap_remove(i));
                                 model.#method_name = matching;
                             }
                         }

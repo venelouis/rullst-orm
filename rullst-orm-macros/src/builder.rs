@@ -690,6 +690,9 @@ fn generate_execution_methods(
                 async fn get_with_tx_internal<'e, E>(&self, executor: E) -> Result<Vec<#name>, rullst_orm::Error>
                 where E: rullst_orm::_sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
                 {
+                    if !self.errors.is_empty() {
+                        return Err(self.errors[0].clone());
+                    }
                     let query_str = self.to_sql();
 
                     #[cfg(feature = "redis")]
@@ -756,23 +759,15 @@ fn generate_execution_methods(
                     Ok(results.into_iter().next())
                 }
 
-                #[allow(clippy::needless_update)]
                 pub async fn paginate(&self, page: usize, per_page: usize) -> Result<rullst_orm::PaginationResult<#name>, rullst_orm::Error> {
-                    let total_builder = Self {
-                        selects: Some("COUNT(*)".to_string()),
-                        limit: None,
-                        offset: None,
-                        order_by: None,
-                        is_distinct: self.is_distinct.clone(),
-                        joins: self.joins.clone(),
-                        wheres: self.wheres.clone(),
-                        havings: self.havings.clone(),
-                        bindings: self.bindings.clone(),
-                        group_by: self.group_by.clone(),
-                        with_trashed: self.with_trashed,
-                        only_trashed: self.only_trashed,
-                        ..self.clone()
-                    };
+                    if !self.errors.is_empty() {
+                        return Err(self.errors[0].clone());
+                    }
+                    let mut total_builder = self.clone();
+                    total_builder.selects = Some("COUNT(*)".to_string());
+                    total_builder.limit = None;
+                    total_builder.offset = None;
+                    total_builder.order_by = None;
 
                     let query_str = total_builder.to_sql();
                     if rullst_orm::schema::is_query_log_enabled() {
@@ -811,6 +806,9 @@ fn generate_execution_methods(
                 }
 
                 pub async fn count(&self) -> Result<i64, rullst_orm::Error> {
+                    if !self.errors.is_empty() {
+                        return Err(self.errors[0].clone());
+                    }
                     let pool = rullst_orm::Orm::read_pool();
                     let mut builder = self.clone();
                     builder.selects = Some("COUNT(*)".to_string());
@@ -843,9 +841,9 @@ fn generate_execution_methods(
                     Fut: std::future::Future<Output = ()> + Send,
                 {
                     let mut page = 1;
+                    let mut builder = self.clone();
+                    builder.limit = Some(size);
                     loop {
-                        let mut builder = self.clone();
-                        builder.limit = Some(size);
                         builder.offset = Some((page - 1) * size);
                         let results = builder.get().await?;
                         let count = results.len();
@@ -889,6 +887,9 @@ fn generate_execution_methods(
                 async fn delete_all_with_tx_internal<'e, E>(&self, executor: E) -> Result<u64, rullst_orm::Error>
                 where E: rullst_orm::_sqlx::Executor<'e, Database = rullst_orm::RullstDatabase>
                 {
+                    if !self.errors.is_empty() {
+                        return Err(self.errors[0].clone());
+                    }
                     #delete_all_logic
 
                     if !self.wheres.is_empty() {
@@ -926,6 +927,9 @@ fn generate_execution_methods(
                 }
 
                 pub async fn pluck_string(&self, column: &str) -> Result<Vec<String>, rullst_orm::Error> {
+                    if !self.errors.is_empty() {
+                        return Err(self.errors[0].clone());
+                    }
                     let pool = rullst_orm::Orm::read_pool();
                     let mut builder = self.clone();
                     builder.selects = Some(column.to_string());
@@ -946,6 +950,9 @@ fn generate_execution_methods(
                 }
 
                 pub async fn pluck_i32(&self, column: &str) -> Result<Vec<i32>, rullst_orm::Error> {
+                    if !self.errors.is_empty() {
+                        return Err(self.errors[0].clone());
+                    }
                     let pool = rullst_orm::Orm::read_pool();
                     let mut builder = self.clone();
                     builder.selects = Some(column.to_string());
