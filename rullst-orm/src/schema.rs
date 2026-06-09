@@ -809,6 +809,18 @@ mod tests {
     }
 
     #[test]
+    fn test_column_default_to_sql_escaping() {
+        let default_text = ColumnDefault::Text("O'Reilly".to_string());
+        assert_eq!(default_text.to_sql(), "'O''Reilly'");
+    }
+
+    #[test]
+    fn test_validate_identifier_multiple_dots() {
+        assert!(validate_identifier("table.column").is_ok()); // one dot
+        assert!(validate_identifier("schema.table.column").is_err()); // multiple dots
+    }
+
+    #[test]
     fn test_column_default_sql_rendering() {
         assert_eq!(
             ColumnDefault::CurrentTimestamp.to_sql(),
@@ -862,5 +874,21 @@ mod tests {
 
         col.default(ColumnDefault::Integer(18));
         assert_eq!(col.default_value, Some(ColumnDefault::Integer(18)));
+    }
+
+    #[tokio::test]
+    async fn test_db_migration_error_state_invalid_blueprint() {
+        let result = Schema::create("invalid; DROP TABLE users", |bp| {
+            bp.id();
+        }).await;
+        
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_drop_if_exists_invalid_table() {
+        let result = Schema::drop_if_exists("invalid; name").await;
+        assert!(result.is_err());
+        assert!(matches!(result, Err(crate::Error::Internal(_))));
     }
 }

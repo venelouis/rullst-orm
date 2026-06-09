@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.6] - 2026-06-09 🛠️
+
+### Performance
+- **`chunk` builder optimization:** Eliminated heavy struct and query state cloning inside the internal chunking `while` loop, allocating the builder exactly once and dynamically modifying its offset parameters instead.
+
+### Fixed
+- **Macro linter output:** Removed the hardcoded `#[allow(clippy::needless_update)]` mask from the `paginate` generated code by employing localized mutable builder state correctly, surfacing legitimate upstream warnings previously suppressed in downstream applications.
+
+### Tests
+- **Schema `drop_if_exists` resilience test:** Injected an integration test validating that malformed or empty drop table commands properly propagate `Error::Internal` blocks without executing unsafe DDL operations.
+- **Panic propagation test (`with_tenant`):** Implemented an asynchronous isolation test assuring task local scope integrity and lack of thread poisoning when closures panic under multi-tenant contexts.
+- **Audit diff JSON matching block:** Ensured the internal `.compute_diff()` logic securely yields `None` identically when provided exact duplicate payloads.
+
 ## [4.0.5] - 2026-06-08 🧪
 
 ### Added

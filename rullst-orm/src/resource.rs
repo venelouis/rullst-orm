@@ -89,4 +89,15 @@ mod tests {
         let v = rc.resolve();
         assert_eq!(v.as_array().unwrap().len(), 0);
     }
+
+    #[test]
+    fn test_resource_collection_resolve_large() {
+        let items: Vec<DummyResource> = (0..10_000).map(|i| DummyResource { value: i }).collect();
+        let rc = ResourceCollection::new(&items);
+        let v = rc.resolve();
+        assert!(v.is_array());
+        let arr = v.as_array().unwrap();
+        assert_eq!(arr.len(), 10_000);
+        assert_eq!(arr[9_999]["value"], 9_999);
+    }
 }
