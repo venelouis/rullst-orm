@@ -10,6 +10,8 @@
 
 An Active Record ORM for Rust, inspired by Laravel's Orm.
 
+🚀 **[Visit the Official Website & Documentation Hub](https://venelouis.github.io/rullst-orm/)** 🚀
+
 Built on top of `sqlx` and procedural macros, **rullst-orm** aims to bring the delightful and simplistic syntax of Laravel directly to the high-performance Rust ecosystem. It supports **PostgreSQL**, **MySQL**, and **SQLite** universally out of the box using dynamic driver loading!
 
 ## 🚀 Why Rullst ORM?

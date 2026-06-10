@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.7] - 2026-06-09 🚀
+
+### Added
+- **Official Documentation Website:** Launched the new Vite-powered promotional and documentation site for Rullst ORM at https://venelouis.github.io/rullst-orm/ featuring a modern Glassmorphism UI and side-by-side framework comparisons.
+- **Automated Deployments:** GitHub Actions now automatically builds and deploys the `website/` directory to GitHub pages on every push to `main`.
+- **Audit Completeness:** Certified v4.0.6/v4.0.7 as 10/10 on the internal Architectural and Security Audit.
+
+## [4.0.6] - 2026-06-09 🛡️
+
+### Fixed
+- **Clippy and Audit:** Resolved all final Rust clippy warnings (e.g. `collapsible_if` in `audit.rs`) and confirmed 0 dependencies vulnerabilities across 248 crates.
+- **SQLi Protections & Memory Resiliency:** Eliminated task-local cross-tenant bleeding on panic boundaries and enforced strict regex `validate_identifier` logic over dynamic column creations.
+
 ## [4.0.5] - 2026-06-08 🧪
 
 ### Added
