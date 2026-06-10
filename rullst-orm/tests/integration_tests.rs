@@ -446,25 +446,35 @@ async fn scenario_schema_lifecycle() {
 
 // ── Scenario 7: audit logging ─────────────────────────────────────────────
 async fn scenario_audit() {
-    rullst_orm::audit::create_audit_table().await.expect("create audit table");
-
-    rullst_orm::audit::log_audit("User", 99, "created", None, Some(r#"{"name":"test"}"#.to_string()))
+    rullst_orm::audit::create_audit_table()
         .await
-        .expect("log audit");
+        .expect("create audit table");
+
+    rullst_orm::audit::log_audit(
+        "User",
+        99,
+        "created",
+        None,
+        Some(r#"{"name":"test"}"#.to_string()),
+    )
+    .await
+    .expect("log audit");
 
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM rullst_audits")
         .fetch_one(Orm::pool())
         .await
         .expect("count audits");
     assert_eq!(count.0, 1);
-    
-    rullst_orm::schema::Schema::drop_if_exists("rullst_audits").await.expect("drop audits");
+
+    rullst_orm::schema::Schema::drop_if_exists("rullst_audits")
+        .await
+        .expect("drop audits");
 }
 
 // ── Scenario 8: query result ext ──────────────────────────────────────────
 async fn scenario_query_result_ext() {
     use rullst_orm::database::QueryResultExt;
-    
+
     Schema::create("it_query_result_ext", |t: &mut Blueprint| {
         t.id();
         t.string("name").not_null();
@@ -488,5 +498,7 @@ async fn scenario_query_result_ext() {
         assert!(id >= 0, "last insert id should be >= 0");
     }
 
-    Schema::drop_if_exists("it_query_result_ext").await.expect("drop it_query_result_ext");
+    Schema::drop_if_exists("it_query_result_ext")
+        .await
+        .expect("drop it_query_result_ext");
 }

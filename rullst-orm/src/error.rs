@@ -62,10 +62,22 @@ mod tests {
     #[test]
     fn test_rullst_error_display() {
         assert_eq!(RullstError::RecordNotFound.to_string(), "Record not found");
-        assert_eq!(RullstError::DatabaseError("msg".to_string()).to_string(), "Database error: msg");
-        assert_eq!(RullstError::SerializationError("msg".to_string()).to_string(), "Serialization error: msg");
-        assert_eq!(RullstError::Validation("msg".to_string()).to_string(), "Validation error: msg");
-        assert_eq!(RullstError::Internal("msg".to_string()).to_string(), "Internal error: msg");
+        assert_eq!(
+            RullstError::DatabaseError("msg".to_string()).to_string(),
+            "Database error: msg"
+        );
+        assert_eq!(
+            RullstError::SerializationError("msg".to_string()).to_string(),
+            "Serialization error: msg"
+        );
+        assert_eq!(
+            RullstError::Validation("msg".to_string()).to_string(),
+            "Validation error: msg"
+        );
+        assert_eq!(
+            RullstError::Internal("msg".to_string()).to_string(),
+            "Internal error: msg"
+        );
     }
 
     #[test]

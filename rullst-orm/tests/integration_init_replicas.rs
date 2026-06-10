@@ -26,7 +26,7 @@ async fn test_init_with_replicas() {
     // The read_pool should alternate between the replicas
     let read_pool1 = Orm::read_pool();
     let read_pool2 = Orm::read_pool();
-    
+
     // We can execute queries on them
     sqlx::query("SELECT 1")
         .execute(read_pool1)
