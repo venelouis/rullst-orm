@@ -127,28 +127,26 @@
         </div>
       </section>
 
-      <section id="compare" class="comparison">
-        <h2 class="section-title">The Honest Comparison</h2>
-        <div class="compare-grid">
+      <section id="compare" class="features">
+        <h2 class="section-title">A Realistic Comparison</h2>
+        <div class="grid">
           
-          <div class="competitor glass">
-            <h3>Other Rust ORMs (Diesel / SeaORM)</h3>
-            <ul>
-              <li><strong>Boilerplate Hell:</strong> Require defining ActiveModels, Entities, Models, and separate Schema macros just to do a simple INSERT.</li>
-              <li><strong>Steep Learning Curve:</strong> You spend hours fighting the borrow checker, complex traits, and CLI code generators instead of building your product.</li>
-              <li><strong>No Built-in SaaS Tools:</strong> If you want Multi-tenancy or Audit Logs, you have to engineer the middleware entirely from scratch.</li>
-              <li><strong>N+1 Risks:</strong> Often require manual subquery handling or complex dataloaders to prevent destroying your database under load.</li>
-            </ul>
+          <div class="card glass">
+            <span class="card-icon">⚠️</span>
+            <h3>Boilerplate & Learning Curve</h3>
+            <p>While traditional ORMs like Diesel have a steep learning curve and require configuration, <strong>SeaORM 1.0</strong> has evolved to offer a complete async model without sacrificing ergonomics. Modern alternatives like <strong>Ormlite</strong> already use SQLx to auto-generate code and avoid boilerplate realistically.</p>
           </div>
 
-          <div class="competitor glass rullst-win">
-            <h3>Rullst ORM</h3>
-            <ul>
-              <li><strong>Zero Boilerplate:</strong> Your single Rust <code>struct</code> is the absolute source of truth. Just add <code>#[derive(Orm)]</code> and you're done.</li>
-              <li><strong>Developer Joy:</strong> Designed mimicking Laravel Eloquent. Methods like <code>.where_eq()</code> and <code>.save()</code> just work, with no lifetime headaches.</li>
-              <li><strong>Enterprise Ready:</strong> Read/Write replica splitting, Chunking, Multi-tenancy, and Redis caching are built into the core framework.</li>
-              <li><strong>O(1) Relationships:</strong> <code>.with_posts()</code> automatically batches parent IDs in memory and runs exactly 2 flat queries, regardless of size.</li>
-            </ul>
+          <div class="card glass">
+            <span class="card-icon">🔥</span>
+            <h3>SaaS Tools & O(1) Relationships</h3>
+            <p>Claiming "Zero Boilerplate" and O(1) N+1 resolution is an extreme simplification of computing. Multi-tenancy and audit logs aren't "magic"; any ORM requires structured tables and business rules. No DB or ORM can perform pagination and joins in O(1) involving millions of heavy records.</p>
+          </div>
+
+          <div class="card glass">
+            <span class="card-icon">💡</span>
+            <h3>The Real Situation</h3>
+            <p>Rullst is a framework designed for developers who want <strong>Laravel/Next.js</strong> style productivity with Rust's safety. However, consolidated options like <strong>SQLx</strong> continue to dominate benchmarks with incomparable performance, and <strong>Diesel</strong> remains the reference for strict compile-time validation.</p>
           </div>
 
         </div>
