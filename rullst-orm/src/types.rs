@@ -1,4 +1,4 @@
-﻿use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut};
 
 /// A wrapper for JSON columns in the database.
 /// This type allows users to easily cast a column to a struct that implements Serialize and Deserialize.
@@ -101,5 +101,19 @@ impl<'q, T: serde::Serialize> sqlx::Encode<'q, crate::database::RullstDatabase> 
 impl<T> sqlx::Type<crate::database::RullstDatabase> for Json<T> {
     fn type_info() -> <crate::database::RullstDatabase as sqlx::database::Database>::TypeInfo {
         <String as sqlx::Type<crate::database::RullstDatabase>>::type_info()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_json_deref() {
+        let mut j = Json(vec![1, 2, 3]);
+        assert_eq!(j.len(), 3);
+        j.push(4);
+        assert_eq!(j.len(), 4);
+        assert_eq!(j[0], 1);
     }
 }

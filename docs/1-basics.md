@@ -81,14 +81,12 @@ let active_users = User::query()
 - Prefix any with `or_` (e.g., `.or_where_eq()`)
 
 ### Raw Queries (Security Warning)
-If you must use `.where_raw()`, **never concatenate strings**. Use `?` and `.bind()`:
+If you must use `.where_raw()`, **never concatenate strings**. You must pass an array of bindings directly to the method:
 
 ```rust
 // ✅ SECURE
 let users = User::query()
-    .where_raw("email = ? AND is_active = ?")
-    .bind("admin@example.com")
-    .bind(true)
+    .where_raw("email = ? AND is_active = ?", vec!["admin@example.com".into(), true.into()])
     .get()
     .await?;
 ```

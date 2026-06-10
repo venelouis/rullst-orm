@@ -69,6 +69,8 @@ async fn integration_suite() {
     scenario_json_column().await;
     scenario_bulk_operations().await;
     scenario_schema_lifecycle().await;
+    scenario_audit().await;
+    scenario_query_result_ext().await;
 
     // ── cleanup ───────────────────────────────────────────────────────────
     let _ = std::fs::remove_file(DB_FILE);
@@ -440,4 +442,51 @@ async fn scenario_schema_lifecycle() {
     Schema::drop_if_exists("it_lifecycle_alpha")
         .await
         .expect("drop_if_exists on missing table must succeed");
+}
+
+// ── Scenario 7: audit logging ─────────────────────────────────────────────
+async fn scenario_audit() {
+    rullst_orm::audit::create_audit_table().await.expect("create audit table");
+
+    rullst_orm::audit::log_audit("User", 99, "created", None, Some(r#"{"name":"test"}"#.to_string()))
+        .await
+        .expect("log audit");
+
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM rullst_audits")
+        .fetch_one(Orm::pool())
+        .await
+        .expect("count audits");
+    assert_eq!(count.0, 1);
+    
+    rullst_orm::schema::Schema::drop_if_exists("rullst_audits").await.expect("drop audits");
+}
+
+// ── Scenario 8: query result ext ──────────────────────────────────────────
+async fn scenario_query_result_ext() {
+    use rullst_orm::database::QueryResultExt;
+    
+    Schema::create("it_query_result_ext", |t: &mut Blueprint| {
+        t.id();
+        t.string("name").not_null();
+    })
+    .await
+    .expect("create it_query_result_ext");
+
+    let pool = Orm::pool();
+    let result = sqlx::query("INSERT INTO it_query_result_ext (name) VALUES ('Test')")
+        .execute(pool)
+        .await
+        .expect("insert");
+
+    #[cfg(not(any(
+        feature = "strict-postgres",
+        feature = "strict-mysql",
+        feature = "strict-sqlite"
+    )))]
+    {
+        let id = result.get_last_insert_id();
+        assert!(id >= 0, "last insert id should be >= 0");
+    }
+
+    Schema::drop_if_exists("it_query_result_ext").await.expect("drop it_query_result_ext");
 }

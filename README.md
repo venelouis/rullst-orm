@@ -99,7 +99,7 @@ The documentation is kept lean and straight to the point. Dive into the modules 
 
 ## 🛡️ Security
 
-Rullst ORM employs rigorous defenses against **SQL Injection**. All dynamic builder methods (like `.where_eq()`) automatically escape values using `sqlx` prepared statement bindings (`$1` or `?`). Raw queries (`.where_raw()`) actively force developers to use the `.bind()` method. Furthermore, all structural identifiers (table and column names) are validated strictly at runtime against a whitelist regex.
+Rullst ORM employs rigorous defenses against **SQL Injection**. All dynamic builder methods (like `.where_eq()`) automatically escape values using `sqlx` prepared statement bindings (`$1` or `?`). Raw queries (`.where_raw()`) actively force developers to provide an array of bindings directly in the function signature. Furthermore, all structural identifiers (table and column names) are validated strictly at runtime against a whitelist regex.
 
 ## 📄 License
 This project is licensed under the [MIT License](LICENSE).

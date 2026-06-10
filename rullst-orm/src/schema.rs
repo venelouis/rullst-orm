@@ -168,36 +168,28 @@ impl Blueprint {
             .expect("BUG: columns is empty after push")
     }
 
-    pub fn string(&mut self, name: &str) -> &mut Column {
-        let col = Column::new(name, "TEXT");
+    fn add_column(&mut self, name: &str, col_type: &str) -> &mut Column {
+        let col = Column::new(name, col_type);
         self.columns.push(col);
         self.columns
             .last_mut()
             .expect("BUG: columns is empty after push")
+    }
+
+    pub fn string(&mut self, name: &str) -> &mut Column {
+        self.add_column(name, "TEXT")
     }
 
     pub fn integer(&mut self, name: &str) -> &mut Column {
-        let col = Column::new(name, "INTEGER");
-        self.columns.push(col);
-        self.columns
-            .last_mut()
-            .expect("BUG: columns is empty after push")
+        self.add_column(name, "INTEGER")
     }
 
     pub fn float(&mut self, name: &str) -> &mut Column {
-        let col = Column::new(name, "REAL");
-        self.columns.push(col);
-        self.columns
-            .last_mut()
-            .expect("BUG: columns is empty after push")
+        self.add_column(name, "REAL")
     }
 
     pub fn boolean(&mut self, name: &str) -> &mut Column {
-        let col = Column::new(name, "INTEGER");
-        self.columns.push(col);
-        self.columns
-            .last_mut()
-            .expect("BUG: columns is empty after push")
+        self.add_column(name, "INTEGER")
     }
 
     pub fn timestamps(&mut self) {

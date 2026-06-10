@@ -69,17 +69,6 @@ pub fn generate(
     let builder_name = quote::format_ident!("{}QueryBuilder", name);
     let table_name = &parsed.table_name;
     let has_soft_deletes = parsed.has_soft_deletes;
-    let _hook_after_fetch = if !parsed.after_fetch.is_empty() {
-        let method = syn::Ident::new(&parsed.after_fetch, name.span());
-        quote! {
-            let futures = results.iter_mut().map(|model| model.#method());
-            rullst_orm::_futures::future::try_join_all(futures).await?;
-        }
-    } else {
-        quote! {}
-    };
-
-    let _delete_all_logic = generate_delete_all_logic(has_soft_deletes, table_name);
     let execution_methods = generate_execution_methods(parsed, &builder_name, eager_loads);
     let magic_methods = generate_magic_methods(parsed);
 
@@ -143,11 +132,12 @@ pub fn generate(
                 self
             }
 
-            /// Executes a raw WHERE clause.
-            /// WARNING: Do not pass user input directly into `query` as it can cause SQL Injection.
-            /// Always use parameterized bindings when dealing with user data.
-            pub fn where_raw(mut self, query: &str) -> Self {
+            /// Executes a raw WHERE clause with parameterized bindings.
+            pub fn where_raw<V: Into<rullst_orm::RullstValue>>(mut self, query: &str, bindings: Vec<V>) -> Self {
                 self.wheres.push(("AND".to_string(), query.to_string()));
+                for b in bindings {
+                    self.bindings.push(b.into());
+                }
                 self
             }
 
@@ -156,8 +146,12 @@ pub fn generate(
                 self
             }
 
-            pub fn or_where_raw(mut self, query: &str) -> Self {
+            /// Executes a raw OR WHERE clause with parameterized bindings.
+            pub fn or_where_raw<V: Into<rullst_orm::RullstValue>>(mut self, query: &str, bindings: Vec<V>) -> Self {
                 self.wheres.push(("OR".to_string(), query.to_string()));
+                for b in bindings {
+                    self.bindings.push(b.into());
+                }
                 self
             }
 
@@ -538,32 +532,31 @@ pub fn generate(
                 self
             }
 
-            /// WARNING: This generates the raw SQL query. Ensure all dynamic table names and column names are validated.
-            pub fn to_sql(&self) -> String {
+            fn push_select(&self, sql: &mut String) {
                 let select_clause = match &self.selects {
                     Some(s) => s.as_str(),
                     None => "*",
                 };
-                let distinct = if self.is_distinct { "DISTINCT " } else { "" };
-
-                // Estimate capacity: SELECT + FROM + table + joins + wheres
-                let estimated_capacity = 50 + #table_name.len() + self.joins.iter().map(|j| j.len() + 1).sum::<usize>()
-                    + self.wheres.iter().map(|(o, c)| o.len() + c.len() + 4).sum::<usize>();
-                let mut sql = String::with_capacity(estimated_capacity);
-
                 sql.push_str("SELECT ");
                 if self.is_distinct {
                     sql.push_str("DISTINCT ");
                 }
                 sql.push_str(select_clause);
+            }
+
+            fn push_from(&self, sql: &mut String) {
                 sql.push_str(" FROM ");
                 sql.push_str(#table_name);
+            }
 
+            fn push_joins(&self, sql: &mut String) {
                 for join in &self.joins {
                     sql.push(' ');
                     sql.push_str(join);
                 }
+            }
 
+            fn push_wheres(&self, sql: &mut String) -> bool {
                 let mut first_where = true;
                 if !self.wheres.is_empty() {
                     sql.push_str(" WHERE ");
@@ -582,7 +575,10 @@ pub fn generate(
                         }
                     }
                 }
+                first_where
+            }
 
+            fn push_soft_deletes(&self, sql: &mut String, first_where: bool) {
                 if #has_soft_deletes && !self.with_trashed {
                     if first_where {
                         sql.push_str(" WHERE ");
@@ -595,12 +591,16 @@ pub fn generate(
                         sql.push_str("deleted_at IS NULL");
                     }
                 }
+            }
 
+            fn push_group_by(&self, sql: &mut String) {
                 if let Some(group) = &self.group_by {
                     sql.push_str(" GROUP BY ");
                     sql.push_str(group);
                 }
+            }
 
+            fn push_havings(&self, sql: &mut String) {
                 let mut first_having = true;
                 if !self.havings.is_empty() {
                     sql.push_str(" HAVING ");
@@ -619,12 +619,16 @@ pub fn generate(
                         }
                     }
                 }
+            }
 
+            fn push_order_by(&self, sql: &mut String) {
                 if let Some(order) = &self.order_by {
                     sql.push_str(" ORDER BY ");
                     sql.push_str(order);
                 }
+            }
 
+            fn push_limit_offset(&self, sql: &mut String) {
                 if let Some(limit) = self.limit {
                     sql.push_str(" LIMIT ");
                     sql.push_str(&limit.to_string());
@@ -633,7 +637,9 @@ pub fn generate(
                     sql.push_str(" OFFSET ");
                     sql.push_str(&offset.to_string());
                 }
+            }
 
+            fn format_postgres(&self, sql: &str) -> String {
                 if rullst_orm::Orm::driver() == "postgres" {
                     let mut pg_sql = String::with_capacity(sql.len());
                     let mut param_idx = 1;
@@ -647,8 +653,27 @@ pub fn generate(
                     }
                     pg_sql
                 } else {
-                    sql
+                    sql.to_string()
                 }
+            }
+
+            /// WARNING: This generates the raw SQL query. Ensure all dynamic table names and column names are validated.
+            pub fn to_sql(&self) -> String {
+                let estimated_capacity = 50 + #table_name.len() + self.joins.iter().map(|j| j.len() + 1).sum::<usize>()
+                    + self.wheres.iter().map(|(o, c)| o.len() + c.len() + 4).sum::<usize>();
+                let mut sql = String::with_capacity(estimated_capacity);
+
+                self.push_select(&mut sql);
+                self.push_from(&mut sql);
+                self.push_joins(&mut sql);
+                let first_where = self.push_wheres(&mut sql);
+                self.push_soft_deletes(&mut sql, first_where);
+                self.push_group_by(&mut sql);
+                self.push_havings(&mut sql);
+                self.push_order_by(&mut sql);
+                self.push_limit_offset(&mut sql);
+
+                self.format_postgres(&sql)
             }
 
 

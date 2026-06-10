@@ -232,11 +232,14 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         if let Some(ref filter) = self.#filter_flag {
                             query = filter(query);
                         }
-                        let mut all_related = Box::pin(query.get()).await?;
+                        let all_related = Box::pin(query.get()).await?;
+                        let mut map = std::collections::HashMap::new();
+                        for rel in all_related {
+                            map.entry(rel.#fk_ident.clone()).or_insert_with(Vec::new).push(rel);
+                        }
 
                         for model in &mut results {
-                            let (matching, remaining): (Vec<_>, Vec<_>) = all_related.into_iter().partition(|related| related.#fk_ident == model.#lk_ident);
-                            all_related = remaining;
+                            let matching = map.remove(&model.#lk_ident).unwrap_or_default();
                             model.#method_name = Some(matching);
                         }
                     }
@@ -251,11 +254,14 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         if let Some(ref filter) = self.#filter_flag {
                             query = filter(query);
                         }
-                        let mut all_related = Box::pin(query.get()).await?;
+                        let all_related = Box::pin(query.get()).await?;
+                        let mut map = std::collections::HashMap::new();
+                        for rel in all_related {
+                            map.entry(rel.#fk_ident.clone()).or_insert(rel);
+                        }
 
                         for model in &mut results {
-                            let matching = all_related.iter().position(|r| r.#fk_ident == model.#lk_ident).map(|i| all_related.swap_remove(i));
-                            model.#method_name = matching;
+                            model.#method_name = map.remove(&model.#lk_ident);
                         }
                     }
                 }
@@ -269,11 +275,14 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                         if let Some(ref filter) = self.#filter_flag {
                             query = filter(query);
                         }
-                        let mut all_related = Box::pin(query.get()).await?;
+                        let all_related = Box::pin(query.get()).await?;
+                        let mut map = std::collections::HashMap::new();
+                        for rel in all_related {
+                            map.entry(rel.#pk_ident.clone()).or_insert(rel);
+                        }
 
                         for model in &mut results {
-                            let matching = all_related.iter().position(|r| r.#pk_ident == model.#fk_ident).map(|i| all_related.swap_remove(i));
-                            model.#method_name = matching;
+                            model.#method_name = map.remove(&model.#fk_ident);
                         }
                     }
                 }
@@ -281,7 +290,6 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
         } else {
             let morph_type_ident = quote::format_ident!("{}_type", morph_name);
             let morph_id_ident = quote::format_ident!("{}_id", morph_name);
-            let _method_name_constrained = quote::format_ident!("{}_constrained", field_name);
 
             if rel_type == "morph_many" {
                 // Batch load: one query with WHERE morph_id IN (...) AND morph_type = 'Name'
@@ -296,10 +304,13 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             if let Some(ref filter) = self.#filter_flag {
                                 query = filter(query);
                             }
-                            let mut all_related = Box::pin(query.get()).await?;
+                            let all_related = Box::pin(query.get()).await?;
+                            let mut map = std::collections::HashMap::new();
+                            for rel in all_related {
+                                map.entry(rel.#morph_id_ident.clone()).or_insert_with(Vec::new).push(rel);
+                            }
                             for model in &mut results {
-                                let (matching, remaining): (Vec<_>, Vec<_>) = all_related.into_iter().partition(|related| related.#morph_id_ident == model.#lk_ident);
-                                all_related = remaining;
+                                let matching = map.remove(&model.#lk_ident).unwrap_or_default();
                                 model.#method_name = Some(matching);
                             }
                         }
@@ -317,10 +328,13 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             if let Some(ref filter) = self.#filter_flag {
                                 query = filter(query);
                             }
-                            let mut all_related = Box::pin(query.get()).await?;
+                            let all_related = Box::pin(query.get()).await?;
+                            let mut map = std::collections::HashMap::new();
+                            for rel in all_related {
+                                map.entry(rel.#morph_id_ident.clone()).or_insert(rel);
+                            }
                             for model in &mut results {
-                                let matching = all_related.iter().position(|r| r.#morph_id_ident == model.#lk_ident).map(|i| all_related.swap_remove(i));
-                                model.#method_name = matching;
+                                model.#method_name = map.remove(&model.#lk_ident);
                             }
                         }
                     }

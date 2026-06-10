@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-06-10 🎯
+
+### Changed (Breaking Changes)
+- **SQL Injection Prevention:** `where_raw` and `or_where_raw` now enforce an explicit `bindings: Vec<V>` argument natively instead of relying on trailing `.bind()` calls. This permanently prevents developers from mistakenly interpolating strings into raw queries.
+
+### Performance
+- **O(N) Relationship Loading:** Eager-loading relations (`has_many`, `belongs_to`, etc.) now map dependencies using `HashMap`, bringing relation lookup complexity down from O(N²) loop scans to O(N) batched associative lookups.
+
+### Refactoring
+- **Modular Query Generation:** Completely refactored the monolithic `to_sql` string generation function in the macro builder into 10 smaller, highly cohesive helper methods, vastly improving maintainability.
+
+### Tests
+- **Integration Test Suite Expansion:** Introduced new comprehensive SQLite integration tests validating `Orm::init_with_replicas`, `create_audit_table`, `log_audit`, and specific driver boundary behaviors for `QueryResultExt`.
+
 ## [4.0.7] - 2026-06-09 🚀
 
 ### Added

@@ -207,7 +207,7 @@ fn generate_search_method(parsed: &ParsedModel, builder_name: &syn::Ident) -> To
                             sql_ids.push_str(",");
                         }
                     }
-                    base_builder = base_builder.where_raw(format!("id IN ({})", sql_ids).as_str());
+                    base_builder = base_builder.where_raw(format!("id IN ({})", sql_ids).as_str(), vec![] as Vec<rullst_orm::RullstValue>);
                 }
                 return base_builder;
             }
@@ -221,10 +221,11 @@ fn generate_search_method(parsed: &ParsedModel, builder_name: &syn::Ident) -> To
                 raw_parts.push(format!("CAST({} AS {}) LIKE ?", col, cast_type));
             }
             let raw_where = raw_parts.join(" OR ");
+            let mut bindings = Vec::with_capacity(cols.len());
             for _ in &cols {
-                base_builder.bindings.push(rullst_orm::RullstValue::String(like_query.clone()));
+                bindings.push(rullst_orm::RullstValue::String(like_query.clone()));
             }
-            base_builder.where_raw(raw_where.as_str())
+            base_builder.where_raw(raw_where.as_str(), bindings)
         }
     }
 }

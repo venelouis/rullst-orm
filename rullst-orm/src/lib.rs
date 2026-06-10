@@ -344,6 +344,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_pagination_result() {
+        let mut pr = PaginationResult {
+            data: vec![1, 2, 3],
+            total: 3,
+            per_page: 10,
+            current_page: 1,
+            last_page: 1,
+        };
+        assert_eq!(pr.data.len(), 3);
+        assert_eq!(pr.total, 3);
+        pr.data.push(4);
+        assert_eq!(pr.data.len(), 4);
+    }
+
+    #[test]
     fn test_rullst_value_conversions() {
         let v: RullstValue = "test".into();
         assert!(matches!(v, RullstValue::String(_)));

@@ -54,3 +54,24 @@ impl From<redis::RedisError> for RullstError {
         RullstError::CacheError(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rullst_error_display() {
+        assert_eq!(RullstError::RecordNotFound.to_string(), "Record not found");
+        assert_eq!(RullstError::DatabaseError("msg".to_string()).to_string(), "Database error: msg");
+        assert_eq!(RullstError::SerializationError("msg".to_string()).to_string(), "Serialization error: msg");
+        assert_eq!(RullstError::Validation("msg".to_string()).to_string(), "Validation error: msg");
+        assert_eq!(RullstError::Internal("msg".to_string()).to_string(), "Internal error: msg");
+    }
+
+    #[test]
+    fn test_rullst_error_from() {
+        let sqlx_err = sqlx::Error::RowNotFound;
+        let err: RullstError = sqlx_err.into();
+        assert!(matches!(err, RullstError::RecordNotFound));
+    }
+}
