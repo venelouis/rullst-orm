@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rullst ORM | The Active Record Framework Rust Deserves</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <header class="glass">
+      <div class="logo">
+        ✨ Rullst ORM
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#compare">Compare</a>
+        <a href="https://github.com/venelouis/rullst-orm" target="_blank" class="btn btn-secondary" style="padding: 0.5rem 1.5rem;">GitHub</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>The Active Record Framework<br>Rust Deserves.</h1>
+        <p>A beautiful, type-safe ORM that brings the magic of Laravel's Eloquent to the high-performance Rust ecosystem. Zero boilerplate. O(1) relationships. Multi-tenancy built-in.</p>
+        
+        <div class="cta-group">
+          <a href="https://docs.rs/rullst-orm" target="_blank" class="btn btn-primary">Read the Docs</a>
+          <a href="https://crates.io/crates/rullst-orm" target="_blank" class="btn btn-secondary">cargo add rullst-orm</a>
+        </div>
+
+        <div class="code-showcase glass">
+          <div class="mac-window">
+            <div class="mac-header">
+              <div class="dot red"></div>
+              <div class="dot yellow"></div>
+              <div class="dot green"></div>
+            </div>
+<pre><code><span class="keyword">use</span> <span class="type">rullst_orm</span>::{<span class="type">Orm</span>, <span class="type">FromRow</span>};
+
+<span class="comment">// 1. Just add the macro. That's it.</span>
+<span class="macro">#[derive</span>(<span class="type">Debug</span>, <span class="type">Clone</span>, <span class="type">FromRow</span>, <span class="type">Orm</span>)<span class="macro">]</span>
+<span class="keyword">pub struct</span> <span class="type">User</span> {
+    <span class="keyword">pub</span> id: <span class="type">i32</span>,
+    <span class="keyword">pub</span> name: <span class="type">String</span>,
+    <span class="keyword">pub</span> email: <span class="type">String</span>,
+}
+
+<span class="macro">#[tokio::main]</span>
+<span class="keyword">async fn</span> <span class="function">main</span>() -> <span class="type">Result</span>&lt;(), <span class="type">rullst_orm::Error</span>&gt; {
+    <span class="comment">// 2. Connect to any database</span>
+    <span class="type">Orm</span>::<span class="function">init</span>(<span class="string">"postgres://localhost/db"</span>).<span class="function">await</span>?;
+
+    <span class="comment">// 3. Fluent, safe, chained queries</span>
+    <span class="keyword">let</span> active_users = <span class="type">User</span>::<span class="function">query</span>()
+        .<span class="function">where_like</span>(<span class="string">"email"</span>, <span class="string">"%@company.com"</span>)
+        .<span class="function">order_by_desc</span>(<span class="string">"id"</span>)
+        .<span class="function">limit</span>(<span class="number">10</span>)
+        .<span class="function">get</span>()
+        .<span class="function">await</span>?;
+        
+    <span class="type">Ok</span>(())
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="features">
+        <h2 class="section-title">Enterprise Features, Zero Config</h2>
+        <div class="grid">
+          <div class="card glass">
+            <span class="card-icon">⚡</span>
+            <h3>O(1) Eager Loading</h3>
+            <p>Say goodbye to the N+1 problem. Fetch deeply nested trees (has_many, belongs_to, morph_many) automatically using highly optimized memory-mapped batch queries.</p>
+          </div>
+          <div class="card glass">
+            <span class="card-icon">🏢</span>
+            <h3>Native Multi-Tenancy</h3>
+            <p>Wrap your code in a <code>with_tenant</code> block and Rullst automatically scopes every single SELECT, UPDATE, and DELETE to that tenant using Async Task Locals.</p>
+          </div>
+          <div class="card glass">
+            <span class="card-icon">🛡️</span>
+            <h3>Automated Audit Trails</h3>
+            <p>Add <code>#[orm(auditable)]</code> and instantly track JSON diffs of `old_values` and `new_values` natively on every row modification for compliance.</p>
+          </div>
+          <div class="card glass">
+            <span class="card-icon">🔎</span>
+            <h3>Scout Full-Text Search</h3>
+            <p>Sync your structs directly to Meilisearch or Algolia automatically when they are saved, or fallback to robust SQL LIKE searches transparently.</p>
+          </div>
+          <div class="card glass">
+            <span class="card-icon">🧠</span>
+            <h3>Redis Caching</h3>
+            <p>Tired of slow database hits? Chain <code>.remember(3600)</code> and Rullst caches the result of your massive SQL query in Redis for an hour. Zero extra code.</p>
+          </div>
+          <div class="card glass">
+            <span class="card-icon">🐘</span>
+            <h3>Artisan CLI</h3>
+            <p>Generate, run, and rollback database migrations seamlessly using the built-in fluent Schema Builder directly from your Rust binary.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="compare" class="comparison">
+        <h2 class="section-title">The Honest Comparison</h2>
+        <div class="compare-grid">
+          
+          <div class="competitor glass">
+            <h3>Other Rust ORMs (Diesel / SeaORM)</h3>
+            <ul>
+              <li><strong>Boilerplate Hell:</strong> Require defining ActiveModels, Entities, Models, and separate Schema macros just to do a simple INSERT.</li>
+              <li><strong>Steep Learning Curve:</strong> You spend hours fighting the borrow checker, complex traits, and CLI code generators instead of building your product.</li>
+              <li><strong>No Built-in SaaS Tools:</strong> If you want Multi-tenancy or Audit Logs, you have to engineer the middleware entirely from scratch.</li>
+              <li><strong>N+1 Risks:</strong> Often require manual subquery handling or complex dataloaders to prevent destroying your database under load.</li>
+            </ul>
+          </div>
+
+          <div class="competitor glass rullst-win">
+            <h3>Rullst ORM</h3>
+            <ul>
+              <li><strong>Zero Boilerplate:</strong> Your single Rust <code>struct</code> is the absolute source of truth. Just add <code>#[derive(Orm)]</code> and you're done.</li>
+              <li><strong>Developer Joy:</strong> Designed mimicking Laravel Eloquent. Methods like <code>.where_eq()</code> and <code>.save()</code> just work, with no lifetime headaches.</li>
+              <li><strong>Enterprise Ready:</strong> Read/Write replica splitting, Chunking, Multi-tenancy, and Redis caching are built into the core framework.</li>
+              <li><strong>O(1) Relationships:</strong> <code>.with_posts()</code> automatically batches parent IDs in memory and runs exactly 2 flat queries, regardless of size.</li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>MIT Licensed | Built with ❤️ by the Rullst ORM Team</p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
