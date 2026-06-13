@@ -48,6 +48,20 @@ struct JsonRecord {
     pub data: Json<Payload>,
 }
 
+// ── model: tenant-scoped products ─────────────────────────────────────────
+//
+// Two products, two tenants, used by the
+// `scenario_tenant_context_switching` test to exercise the
+// `without_tenant()` per-query override against a plain
+// `with_tenant(t)` scope.
+#[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
+#[orm(table = "it_tenant_products", tenant_column = "tenant_id")]
+struct TenantProduct {
+    pub id: i32,
+    pub name: String,
+    pub tenant_id: i32,
+}
+
 // ── database path ─────────────────────────────────────────────────────────
 const DB_FILE: &str = "it_suite.db";
 
@@ -73,6 +87,7 @@ async fn integration_suite() {
     scenario_schema_lifecycle().await;
     scenario_audit().await;
     scenario_query_result_ext().await;
+    scenario_tenant_context_switching().await;
 
     // ── cleanup ───────────────────────────────────────────────────────────
     let _ = std::fs::remove_file(DB_FILE);
@@ -782,4 +797,165 @@ async fn scenario_query_result_ext() {
     Schema::drop_if_exists("it_query_result_ext")
         .await
         .expect("drop it_query_result_ext");
+}
+
+// ── Scenario 9: tenant scoping + per-query overrides ────────────────────
+//
+// Exercises the per-query tenant overrides against a real SQLite
+// database. The test seeds rows for two tenants and then verifies:
+//
+//  1. A plain `with_tenant(t)` scope filters by that tenant.
+//  2. `without_tenant()` inside an active `t1` scope sees every row.
+//  3. A tenant id with a single quote (SQL-injection bait) is escaped
+//     rather than terminating the string literal.
+//  4. An explicit `where_eq("tenant_id", …)` deduplicates the
+//     auto-injected tenant filter (no phantom binding, column
+//     appears exactly once in the rendered SQL).
+//  5. `delete_all` honours the active `with_tenant` scope the same
+//     way `to_sql()` does.
+async fn scenario_tenant_context_switching() {
+    use rullst_orm::with_tenant;
+
+    Schema::create("it_tenant_products", |t: &mut Blueprint| {
+        t.id();
+        t.string("name").not_null();
+        t.integer("tenant_id").not_null();
+    })
+    .await
+    .expect("create it_tenant_products");
+
+    // ── Seed rows for tenants 1 and 2 ────────────────────────────────
+    with_tenant(1_i32, async {
+        let mut p = TenantProduct {
+            id: 0,
+            name: "Apple iPhone".into(),
+            tenant_id: 0, // stamped by the save hook
+        };
+        p.save().await.expect("save t1 product");
+        assert_eq!(p.tenant_id, 1, "save must stamp tenant_id from the scope");
+    })
+    .await;
+
+    with_tenant(2_i32, async {
+        let mut p = TenantProduct {
+            id: 0,
+            name: "Samsung Galaxy".into(),
+            tenant_id: 0,
+        };
+        p.save().await.expect("save t2 product");
+        assert_eq!(p.tenant_id, 2, "save must stamp tenant_id from the scope");
+    })
+    .await;
+
+    // ── 1) Plain scope filters to the active tenant ──────────────────
+    let t1 = with_tenant(1_i32, async {
+        TenantProduct::query().get().await.expect("query t1")
+    })
+    .await;
+    assert_eq!(t1.len(), 1, "scope=1 should return exactly one row");
+    assert_eq!(t1[0].name, "Apple iPhone");
+
+    // ── 2) without_tenant() inside a t1 scope sees every row ─────────
+    let all = with_tenant(1_i32, async {
+        TenantProduct::query()
+            .without_tenant()
+            .get()
+            .await
+            .expect("query all")
+    })
+    .await;
+    assert_eq!(all.len(), 2, "without_tenant must drop the WHERE");
+
+    // ── 3) SQL-injection bait: a single quote in the tenant id ──────
+    //
+    // The render helper is unit-tested in tenant.rs; here we only
+    // need to confirm it does not terminate the string before the
+    // closing quote. The exact expected output is `'o''reilly'`
+    // (the standard SQL escape doubles every `'`).
+    let malicious = "o'reilly";
+    let rendered = rullst_orm::render_tenant_literal(&rullst_orm::RullstValue::String(
+        malicious.into(),
+    ));
+    assert_eq!(rendered, "'o''reilly'");
+    assert!(
+        rendered.starts_with('\'') && rendered.ends_with('\''),
+        "render_tenant_literal must wrap the value in single quotes"
+    );
+    // Total number of `'` characters = 1 opening + 2 per inner `'` +
+    // 1 closing. For "o'reilly" (one inner quote) that's 4.
+    assert_eq!(
+        rendered.chars().filter(|c| *c == '\'').count(),
+        4,
+        "the only `'` characters must be the opening, the doubled inner quote, and the closing"
+    );
+
+    // ── 4) Explicit `where_eq("tenant_id", …)` deduplicates ──────────
+    //
+    // The user already pinned the tenant column; the auto-injector
+    // must NOT add a second `<col> = ?` predicate or a phantom
+    // binding. We verify this on both the SELECT and the
+    // `delete_all` paths by checking the rendered SQL.
+    with_tenant(1_i32, async {
+        let b = TenantProduct::query().where_eq("tenant_id", 2_i32);
+        let sql = b.to_sql();
+        let count = sql.matches("tenant_id").count();
+        assert_eq!(
+            count, 1,
+            "auto-injected tenant filter must be deduped when the user already pins tenant_id; sql={}",
+            sql
+        );
+        b.delete_all().await.expect("delete_all with deduped tenant");
+    })
+    .await;
+
+    // ── 5) delete_all follows the active tenant scope ───────────────
+    //
+    // Seed an extra row in tenant 1 to make sure tenant 2's
+    // `delete_all` does NOT touch it.
+    with_tenant(1_i32, async {
+        let mut p = TenantProduct {
+            id: 0,
+            name: "Tenant-1 keepsake".into(),
+            tenant_id: 0,
+        };
+        p.save().await.expect("seed tenant 1 keepsake");
+    })
+    .await;
+    with_tenant(2_i32, async {
+        // Add a row in tenant 2 to delete.
+        let mut p = TenantProduct {
+            id: 0,
+            name: "Tenant-2 victim".into(),
+            tenant_id: 0,
+        };
+        p.save().await.expect("seed tenant 2 victim");
+    })
+    .await;
+    // Now delete_all must be scoped to tenant 2: it removes the
+    // Tenant-2 victim row, but leaves the Tenant-1 keepsake alone.
+    with_tenant(2_i32, async {
+        let n = TenantProduct::query()
+            .where_eq("name", "Tenant-2 victim")
+            .delete_all()
+            .await
+            .expect("delete_all under tenant 2");
+        assert_eq!(n, 1, "delete_all must hit only tenant 2's victim");
+    })
+    .await;
+    with_tenant(1_i32, async {
+        let row = TenantProduct::query()
+            .where_eq("name", "Tenant-1 keepsake")
+            .first()
+            .await
+            .expect("query keepsake");
+        assert!(
+            row.is_some(),
+            "tenant 1's keepsake must survive a tenant-2 delete_all"
+        );
+    })
+    .await;
+
+    Schema::drop_if_exists("it_tenant_products")
+        .await
+        .expect("drop it_tenant_products");
 }

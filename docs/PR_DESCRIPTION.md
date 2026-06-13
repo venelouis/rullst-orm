@@ -2,212 +2,177 @@
 
 ## Title
 
-`feat(macros): configurable soft delete + #[sqlx(skip)] field attribute`
+`feat(orm): simplify tenant context API to with_tenant + without_tenant()`
 
 ## Description
 
-Two new ergonomic knobs on `#[derive(rullst_orm::Orm)]`, both inspired by
-MyBatis-Plus:
+The tenant context API is simplified to its minimum useful shape.
 
-1. **Configurable soft delete** — pick the column, the "not deleted"
-   sentinel, and the "deleted" sentinel (a literal *or* a database
-   function like `now()` / `UNIX_TIMESTAMP()`).
-2. **`#[sqlx(skip)]` (alias of `#[orm(skip)]`)** — exclude a struct
-   field from generated SQL while keeping the field on the struct for
-   local use.
+End state:
 
-The generated `SELECT` / `UPDATE` / `restore` SQL is portable across
-MySQL, PostgreSQL and SQLite (no dialect-specific branches).
+- `rullst_orm::with_tenant(t, …)` — the only ambient source of
+  truth, set once at the request boundary. Every read, delete and
+  `entity.save()` inside the closure sees `t` as its
+  `tenant_column` value.
+- `QueryBuilder::without_tenant()` — the only per-query opt-out, for
+  the rare cases that need to drop the auto-injected
+  `WHERE <tenant_column> = ?` (super-admin reads, cross-tenant
+  reports, migrations).
+
+The end state is the original multi-tenant API. This PR is a small
+cleanup that removed a few extra knobs that were added on top of it
+but did not earn their keep.
 
 ---
 
-## Motivation
+## Why this is the right API
 
-Previously, soft delete was hard-wired to a `deleted_at` column compared
-with `IS NULL`, and there was no way to opt a column out of generated
-SQL without losing the field on the struct. These two limitations
-forced users to drop down to raw `sqlx` for a class of models that is
-very common in production (boolean / integer flag columns, bigint
-monotonic counters inside unique indexes, in-memory caches on a model,
-etc.).
+The original API was already correct:
 
-This PR brings the MyBatis-Plus ergonomics that are described in the
-issue to Rust, on top of `rullst-orm`'s existing builder.
+- `with_tenant(t, …)` is the request-scoped ambient tenant id. The
+  `?` substitution, the `entity.save()` tenant stamping, and the
+  `delete_all()` tenant filter all consume it.
+- `QueryBuilder::without_tenant()` exists for the rare cases where a
+  single operation inside a `with_tenant(t)` scope must run
+  unfiltered.
+
+Cross-tenant reads that need a target tenant other than the active
+scope are already reachable without a third knob:
+
+- `with_tenant(t2, …)` — open a new scope for the request.
+- `without_tenant()` + `where_eq("tenant_id", t2)` — for a single
+  query.
+
+---
+
+## API at a glance
+
+| Surface                                    | Use case                                                              |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `with_tenant(t, …)`                        | Every operation in a request runs under `t`.                          |
+| `QueryBuilder::without_tenant()`           | Drop the WHERE for a single operation (super-admin, cross-tenant).    |
+
+That's the whole API. One task-local, one entry point, one
+per-query opt-out. No "per-builder override" tier, no parallel
+task-local, no separate "skip" flag.
 
 ---
 
 ## Changes
 
-### 1. New `#[orm(soft_delete(field, value, delval))]` configuration
+### 1. Tenant context API
 
-| Key      | Description                                                                                          | Example                                       |
-| -------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `field`  | Column name used as the soft delete marker. Defaults to `deleted_at`.                                | `field = "is_deleted"`                        |
-| `value`  | "Not deleted" sentinel. The literal string `null` renders as `IS NULL` / `IS NOT NULL`.               | `value = "0"`, `value = "null"`               |
-| `delval` | "Deleted" sentinel. Spliced verbatim as raw SQL so users can pass any database function.              | `delval = "1"`, `delval = "now()"`, `delval = "UNIX_TIMESTAMP()"` |
+- `rullst_orm::tenant::CURRENT_TENANT` is the only task-local.
+- `rullst_orm::with_tenant(t, …)` is the only scope helper.
+- `rullst_orm::get_tenant_id()` returns the active scope value (or
+  `None` outside any `with_tenant` closure).
+- `rullst_orm::cond_mentions_column()` and
+  `rullst_orm::render_tenant_literal()` remain as the supported
+  helpers, both unit-tested in `rullst-orm/src/tenant.rs`.
 
-```rust
-// Integer flag (0 = active, 1 = deleted)
-#[derive(Debug, Clone, Default, FromRow, Orm)]
-#[orm(table = "users", soft_delete(field = "is_deleted", value = "0", delval = "1"))]
-pub struct User {
-    pub id: i32,
-    pub name: String,
-    pub is_deleted: i32,
-}
+### 2. QueryBuilder
 
-// `datetime` with `null` for "not deleted" and `now()` for "deleted"
-#[derive(Debug, Clone, Default, FromRow, Orm)]
-#[orm(table = "posts", soft_delete(field = "deleted_at", value = "null", delval = "now()"))]
-pub struct Post {
-    pub id: i32,
-    pub title: String,
-    pub deleted_at: Option<chrono::NaiveDateTime>,
-}
+- The per-builder `QueryBuilder::without_tenant()` flag is the only
+  per-query knob.
+- `push_tenant_filter` and `delete_all_with_tx_internal` consult
+  only `get_tenant_id()` and `skip_tenant`. The auto-injected
+  `WHERE <col> = <literal>` clause short-circuits when the user has
+  already pinned the tenant column with their own predicate
+  (`where_eq`, `where_in`, `where_not_null`, …), so there is no
+  duplicate `<col> = ?` and no phantom binding in the params vec.
 
-// `bigint` counter (unique-index friendly, supports multi-delete)
-#[derive(Debug, Clone, Default, FromRow, Orm)]
-#[orm(table = "events", soft_delete(field = "deleted_at", value = "0", delval = "UNIX_TIMESTAMP()"))]
-pub struct Event {
-    pub id: i32,
-    pub payload: String,
-    pub deleted_at: i64,
-}
-```
+### 3. Documentation
 
-API:
+- The "Per-Query Tenant Overrides" section in
+  `docs/3-advanced-features.md` is removed.
+- A short pointer to `without_tenant()` and the SQL-literal escape
+  rules sits next to the main `with_tenant` example in the
+  `## 🏢 Multi-Tenancy` section.
 
-```rust
-let active  = User::query().get().await?;                  // hides deleted
-let trashed = User::query().only_trashed().get().await?;  // only deleted
-let all     = User::query().with_trashed().get().await?;  // both
+### 4. Tests and example
 
-user.delete().await?;       // UPDATE users SET is_deleted = 1 WHERE id = ?
-user.restore().await?;      // UPDATE users SET is_deleted = 0 WHERE id = ?
-user.force_delete().await?; // DELETE FROM users WHERE id = ?
-```
-
-`QueryBuilder::delete_all()` is also smart: it emits
-`UPDATE <table> SET <col> = <delval> …` instead of a destructive
-`DELETE` when the model is soft-delete aware.
-
-**Cross-database behaviour:**
-
-- `value = "null"` ⇒ `IS NULL` / `IS NOT NULL` (works on every driver).
-- `value = "0"` / `value = "1"` ⇒ `<col> = 0` / `<col> = 1` (portable).
-- `delval = "now()"`, `delval = "CURRENT_TIMESTAMP"`,
-  `delval = "UNIX_TIMESTAMP()"` are interpolated verbatim; pick the
-  function your database actually supports.
-- Pre-existing `deleted_at` models (no `#[orm(soft_delete(...))]`) keep
-  compiling and behaving the same way (`IS NULL` /
-  `CURRENT_TIMESTAMP`).
-
-### 2. New `#[sqlx(skip)]` field attribute
-
-```rust
-#[derive(Debug, Clone, Default, FromRow, Orm)]
-#[orm(table = "users", soft_delete(field = "is_deleted", value = "0", delval = "1"))]
-pub struct User {
-    pub id: i32,
-    pub name: String,
-    pub is_deleted: i32,
-
-    /// `secret` is intentionally not persisted. The macro removes it
-    /// from INSERT / UPDATE column lists, the `*Column` enum, the JSON
-    /// serialiser, and the row mapping, while still letting you
-    /// read/write `user.secret` locally.
-    #[sqlx(skip)]
-    pub secret: String,
-}
-```
-
-The skipped field is excluded from:
-
-- `INSERT` / `UPDATE` column lists and bindings
-- the generated `*Column` enum
-- `to_json` / `from_json_value` and the cache serialisers
-- the `sqlx::FromRow` mapping (so missing-column errors disappear)
-
-`#[orm(skip)]` remains supported as an alias so the existing surface
-keeps working. Models with any skipped field get a
-`..Default::default()` tail in `from_json_value`, so they must also
-`derive(Default)`.
+- `scenario_tenant_context_switching` in
+  `rullst-orm/tests/integration_tests.rs` covers 5 cases: plain
+  scope, `without_tenant()`, dedup of a user-pinned tenant column,
+  SQL-string-literal escape, `delete_all()` honouring the active
+  scope.
+- `rullst-orm/examples/tenant_context_switching.rs` shows
+  `with_tenant` + `without_tenant()` against two tenants.
 
 ---
 
 ## Files changed
 
-| File                                                       | What changed                                                         |
-| ---------------------------------------------------------- | -------------------------------------------------------------------- |
-| `rullst-orm-macros/src/parser.rs`                          | Parse `soft_delete(field, value, delval)` and `#[orm(skip)]`/`#[sqlx(skip)]` |
-| `rullst-orm-macros/src/builder.rs`                         | Render portable `WHERE` filters + `delete_all` `UPDATE`; pre-render `IS NULL` / `= <value>` fragments |
-| `rullst-orm-macros/src/models.rs`                          | Generate `delete` / `restore` / `force_delete` honouring the config; emit `..Default::default()` when a skip field is present |
-| `rullst-orm-macros/src/lib.rs`                             | Accept `sqlx` as a top-level attribute alongside `orm`              |
-| `rullst-orm-macros/tests/macro_tests.rs`                   | 6 new tests: explicit config, null sentinel, bigint timestamp, both skip aliases, combined usage |
-| `rullst-orm/tests/integration_tests.rs`                    | `scenario_configurable_soft_delete` + `scenario_skipped_field` end-to-end |
-| `rullst-orm/examples/custom_soft_delete.rs`                | New runnable demo covering insert / read / soft delete / restore / force_delete |
-| `docs/3-advanced-features.md`                              | New `🗑️ Configurable Soft Delete` and `🙈 Skipping Fields From Generated SQL` sections |
-| `.gitignore`                                               | Ignore `.idea/`                                                      |
+| File                                                       | What changed                                                                                          |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `rullst-orm/src/tenant.rs`                                 | Public surface is `CURRENT_TENANT` task-local + `with_tenant` / `get_tenant_id` / `cond_mentions_column` / `render_tenant_literal` helpers. The doc comment on `with_tenant` is rewritten to point at the pre-existing `without_tenant()` opt-out. |
+| `rullst-orm/src/lib.rs`                                    | Re-exports reduced to `cond_mentions_column`, `get_tenant_id`, `render_tenant_literal`, `with_tenant`. |
+| `rullst-orm-macros/src/builder.rs`                         | The generated `*QueryBuilder` has only the `skip_tenant` flag and the `without_tenant()` method. `push_tenant_filter` and `delete_all_with_tx_internal` read only `get_tenant_id()` and `skip_tenant`. |
+| `rullst-orm-macros/src/models.rs`                          | `tenant_scope_logic` reads only `get_tenant_id()` to stamp the `tenant_column` on insert. Same `try_into` warning behaviour. |
+| `rullst-orm-macros/tests/macro_tests.rs`                   | Existing `tenant_column` tests still pass (no behavioural change for the basic API).                 |
+| `rullst-orm/tests/integration_tests.rs`                    | `scenario_tenant_context_switching` covers the 5 cases listed in §4. |
+| `rullst-orm/examples/tenant_context_switching.rs`          | Demonstrates `with_tenant` + `without_tenant()` against two tenants. |
+| `docs/3-advanced-features.md`                              | The "Per-Query Tenant Overrides" section is removed. A short pointer to `without_tenant()` and the SQL-literal escape rules sits next to the existing `with_tenant` example. |
+| `docs/PR_DESCRIPTION.md`                                   | This file.                                                                                            |
 
 ---
 
 ## How to verify
 
 ```bash
-# 1. Unit + macro tests
+# 1. Unit tests for the tenant helpers (render + cond_mentions_column + with_tenant)
+cargo test -p rullst-orm --lib tenant
+
+# 2. Macro tests (existing tenant_column variants)
 cargo test -p rullst-orm-macros
 
-# 2. End-to-end integration tests (SQLite)
+# 3. End-to-end integration test (real SQLite)
 cargo test -p rullst-orm --test integration_tests
 
-# 3. The runnable example
-cargo run -p rullst-orm --example custom_soft_delete
+# 4. The runnable example
+cargo run -p rullst-orm --example tenant_context_switching
 ```
 
-All tests pass on the local machine:
+The full test suite passes on the local machine; the
+`scenario_tenant_context_switching` integration test covers:
 
-```
-running 10 tests
-test test_model_with_explicit_soft_delete_config ... ok
-test test_model_with_soft_delete_bigint_timestamp ... ok
-test test_model_with_orm_skip_field ... ok
-test test_model_with_relations ... ok
-test test_model_with_combined_soft_delete_and_skip ... ok
-test test_basic_model ... ok
-test test_model_with_sqlx_skip_field ... ok
-test test_model_with_hidden_fields ... ok
-test test_model_with_soft_delete_null_sentinel ... ok
-test test_model_with_soft_deletes ... ok
-
-running 1 test
-test integration_suite ... ok
-```
+1. A plain `with_tenant(t)` scope filters by that tenant.
+2. `without_tenant()` inside an active `t1` scope sees every row.
+3. A tenant id with a single quote (SQL-injection bait) is escaped
+   rather than terminating the string literal.
+4. An explicit `where_eq("tenant_id", …)` deduplicates the
+   auto-injected tenant filter for both `to_sql()` and
+   `delete_all()` (no phantom binding, column appears exactly
+   once in the rendered SQL).
+5. `delete_all` honours the active `with_tenant` scope the same
+   way `to_sql()` does.
 
 ---
 
 ## Type of change
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [x] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing
-      functionality to not work as expected)
+- [x] Refactor (no behavioural change to callers using the public API)
 - [x] This change requires a documentation update
+- [x] Breaking change (a small number of per-builder / per-scope
+      helpers that sat on top of `with_tenant` and
+      `without_tenant()` are removed; the surviving public API is
+      exactly the pre-existing one)
 
-> The new `soft_delete(field, value, delval)` is opt-in (existing
-> `deleted_at` models continue to behave identically). The new
-> `#[sqlx(skip)]` is opt-in (existing models are unchanged).
-> The macro now also accepts the `sqlx` attribute path, but `orm`
-> continues to work exactly as before.
+> The public `with_tenant` and `QueryBuilder::without_tenant` keep
+> the exact same behaviour they always had. Callers that used the
+> removed per-builder / per-scope knobs can use the equivalent
+> documented in the API table above (`with_tenant(t2, …)` for a new
+> scope, or `without_tenant()` + `where_eq("tenant_id", t2)` for a
+> single query).
 
 ## Checklist
 
-- [x] My code follows the style guidelines of this project (`cargo fmt`,
-      `cargo clippy`)
+- [x] My code follows the style guidelines of this project (`cargo fmt`)
 - [x] I have performed a self-review of my own code
 - [x] I have commented my code, particularly in hard-to-understand areas
 - [x] I have made corresponding changes to the documentation
-- [x] My changes generate no new warnings (`cargo check` and
-      `cargo check --tests` are clean on the workspace)
+- [x] My changes generate no new warnings (`cargo check --all-targets`
+      is clean on the workspace)
 - [x] I have added tests that prove my fix is effective or that my
       feature works
 - [x] New and existing unit tests pass locally with my changes

@@ -35,6 +35,10 @@ let results = with_tenant("company_A1", async {
 }).await;
 ```
 
+For the rare case where a single query inside an active `with_tenant(t)` scope needs to run unfiltered (super-admin / cross-tenant report / migration), call `QueryBuilder::without_tenant()` on that builder. It drops the auto-injected `WHERE <tenant_column> = ?` for that one query.
+
+The tenant id is inlined as a SQL literal (not bound through `?`) via `rullst_orm::tenant::render_tenant_literal`. The string variant doubles every `'` per the standard SQL string-literal escape, which is the only character that can terminate a single-quoted SQL string; numeric, boolean and float variants are rendered in their textual form.
+
 ---
 
 ## 🛡️ Audit Trails

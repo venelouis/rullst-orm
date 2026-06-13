@@ -256,11 +256,15 @@ fn generate_query_methods(parsed: &ParsedModel, builder_name: &syn::Ident) -> To
     };
 
     let tenant_scope_logic = if !parsed.tenant_column.is_empty() {
-        let col = &parsed.tenant_column;
+        // The tenant column name is fixed at codegen time (it comes
+        // from `#[orm(tenant_column = "...")]`). Stash it on the
+        // builder so `to_sql()` — which runs after the user has
+        // finished configuring the builder, including
+        // `without_tenant()` — can decide whether to inject the
+        // WHERE.
+        let col = parsed.tenant_column.clone();
         quote! {
-            if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
-                builder = builder.where_eq(#col, tenant);
-            }
+            builder = builder.with_tenant_column(#col);
         }
     } else {
         quote! {}
@@ -312,10 +316,48 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
 
     let tenant_set_logic = if !parsed.tenant_column.is_empty() {
         let col_ident = syn::Ident::new(&parsed.tenant_column, name.span());
+        // Build a friendly diagnostic that names the entity, the
+        // tenant column, and the actual `RullstValue` variant we
+        // received, so a mis-typed `with_tenant(...)` shows up in
+        // the server log rather than silently writing a wrong value
+        // to the database.
+        let entity_name = name.to_string();
+        let col_name = parsed.tenant_column.clone();
         quote! {
+            // Stamp the active `with_tenant(t)` value on the
+            // `tenant_column` field, if a scope is active. The same
+            // `get_tenant_id()` helper drives
+            // `QueryBuilder::push_tenant_filter()` and
+            // `delete_all()`, so a single `with_tenant(t)` scope
+            // switches the tenant for every read, delete and save
+            // in its body.
             if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
-                if let Ok(val) = tenant.try_into() {
-                    self.#col_ident = val;
+                match tenant.clone().try_into() {
+                    Ok(val) => {
+                        self.#col_ident = val;
+                    }
+                    Err(_) => {
+                        // The `tenant_column` field has a different
+                        // Rust type than the `RullstValue` we were
+                        // given. This is a programming error: either
+                        // `with_tenant("string", ...)` was used
+                        // against a model whose `tenant_column` is
+                        // an integer (or vice-versa), or the
+                        // argument to `with_tenant(...)` has the
+                        // wrong type. We refuse to silently write a
+                        // wrong value: keep the field at whatever
+                        // the caller set and surface a loud
+                        // warning. The eventual `UPDATE` / `INSERT`
+                        // will use the unchanged value.
+                        eprintln!(
+                            "[rullst-orm] WARNING: cannot stamp `{}` on `{}`: \
+                             the active tenant id has type `{:?}` but the `{}` \
+                             field expects a different Rust type. The field is left \
+                             untouched — set it manually on the entity before \
+                             calling `save()` if you need a specific value.",
+                            #col_name, #entity_name, tenant, #col_name
+                        );
+                    }
                 }
             }
         }

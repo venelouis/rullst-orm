@@ -2,6 +2,84 @@ use crate::parser::{ParsedModel, SoftDeleteConfig};
 use proc_macro2::TokenStream;
 use quote::quote;
 
+/// `cond_mentions_column` lives in the `rullst-orm` crate
+/// (`rullst_orm::tenant::cond_mentions_column`) and is called by the
+/// macro-generated `wheres_already_cover_tenant()` at runtime, in
+/// the user crate. The macro crate itself only generates the call
+/// site and the integration test, so the helper is re-exported here
+/// for unit-testing the algorithm in isolation. The actual
+/// `#[cfg(test)]` unit tests below exercise the same algorithm
+/// against the in-crate copy; the user-crate call uses the
+/// `rullst_orm::tenant::cond_mentions_column` definition.
+#[cfg(test)]
+fn cond_mentions_column(cond: &str, column: &str) -> bool {
+    let trimmed = cond.trim_start();
+    let after_qualifier = trimmed.rsplit('.').next().unwrap_or(trimmed);
+    if let Some(rest) = after_qualifier.strip_prefix(column) {
+        match rest.chars().next() {
+            None => true,
+            Some(c) if c.is_whitespace() => true,
+            Some('=') | Some('!') | Some('<') | Some('>') | Some('(') => true,
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod tenant_dedup_tests {
+    use super::cond_mentions_column;
+
+    #[test]
+    fn matches_simple_equality() {
+        assert!(cond_mentions_column("tenant_id = ?", "tenant_id"));
+    }
+
+    #[test]
+    fn matches_inequality() {
+        assert!(cond_mentions_column("tenant_id != ?", "tenant_id"));
+    }
+
+    #[test]
+    fn matches_in_clause() {
+        assert!(cond_mentions_column("tenant_id IN (?)", "tenant_id"));
+        assert!(cond_mentions_column("tenant_id IN (?, ?)", "tenant_id"));
+    }
+
+    #[test]
+    fn matches_is_null() {
+        assert!(cond_mentions_column("tenant_id IS NULL", "tenant_id"));
+    }
+
+    #[test]
+    fn matches_qualified_column() {
+        assert!(cond_mentions_column("users.tenant_id = ?", "tenant_id"));
+    }
+
+    #[test]
+    fn matches_with_leading_whitespace() {
+        assert!(cond_mentions_column("   tenant_id = ?", "tenant_id"));
+    }
+
+    #[test]
+    fn rejects_unrelated_column() {
+        assert!(!cond_mentions_column("status = ?", "tenant_id"));
+    }
+
+    #[test]
+    fn rejects_partial_identifier_match() {
+        // The column is "id"; "identifier" starts with "id" but the
+        // next char is 'e' (a letter) — we must reject it.
+        assert!(!cond_mentions_column("identifier = ?", "id"));
+    }
+
+    #[test]
+    fn rejects_completely_different_predicate() {
+        assert!(!cond_mentions_column("1 = 1", "tenant_id"));
+    }
+}
+
 /// Identifies how a soft-delete value should be compared inside
 /// `SELECT` / `restore` queries. The "literal" mode matches against
 /// `<column> = <value>` while the "null" mode matches against
@@ -202,6 +280,16 @@ pub fn generate(
             pub errors: Vec<rullst_orm::Error>,
             pub with_trashed: bool,
             pub only_trashed: bool,
+            /// Skip the `#[orm(tenant_column = "...")]` auto-injection
+            /// for this single query. Set via `without_tenant()`.
+            pub skip_tenant: bool,
+            /// Name of the entity's `tenant_column` (set by the
+            /// generated `query()` when the entity has
+            /// `#[orm(tenant_column = "...")]`). Consumed by
+            /// `to_sql()` to decide whether to inject the
+            /// `WHERE <col> = ?` clause based on the current
+            /// `skip_tenant` state.
+            pub tenant_column: Option<String>,
             #[cfg(feature = "redis")]
             pub remember_ttl: Option<usize>,
             #(#relation_flags)*
@@ -263,6 +351,8 @@ pub fn generate(
                     errors: vec![],
                     with_trashed: false,
                     only_trashed: false,
+                    skip_tenant: false,
+                    tenant_column: None,
                     #[cfg(feature = "redis")]
                     remember_ttl: None,
                     #(#relation_inits)*
@@ -337,6 +427,32 @@ pub fn generate(
 
             pub fn only_trashed(mut self) -> Self {
                 self.only_trashed = true;
+                self
+            }
+
+            /// Skip the `#[orm(tenant_column = "...")]` auto-injection
+            /// for this single query. Useful when a privileged request
+            /// needs to read across tenants while a `with_tenant()`
+            /// scope is still active.
+            ///
+            /// ```ignore
+            /// // Active tenant is t1, but this query runs unfiltered.
+            /// let total = Order::query()
+            ///     .without_tenant()
+            ///     .where_eq("status", 1)
+            ///     .count()
+            ///     .await?;
+            /// ```
+            pub fn without_tenant(mut self) -> Self {
+                self.skip_tenant = true;
+                self
+            }
+
+            /// Internal helper used by the macro-generated `query()` to
+            /// record the entity's `tenant_column`. End users should
+            /// not call this directly.
+            pub fn with_tenant_column(mut self, column: impl Into<String>) -> Self {
+                self.tenant_column = Some(column.into());
                 self
             }
 
@@ -770,6 +886,98 @@ pub fn generate(
                 }
             }
 
+            /// Returns `true` if any of the user-provided `WHERE` clauses
+            /// already pins the `tenant_column` to a value. The
+            /// auto-injection step short-circuits in that case so we
+            /// never emit a duplicated `<col> = ?` predicate (and a
+            /// doubled binding).
+            ///
+            /// The check is intentionally tolerant: it matches the
+            /// column as the leading token of the SQL fragment, so it
+            /// also catches `tenant_id != ?`, `tenant_id IN (...)`,
+            /// `tenant_id IS NULL`, etc. The operator and the binding
+            /// form are up to the caller — the ORM only refuses to
+            /// add a second condition.
+            fn wheres_already_cover_tenant(&self) -> bool {
+                let Some(col) = self.tenant_column.as_deref() else {
+                    return false;
+                };
+                self.wheres
+                    .iter()
+                    .any(|(_, cond)| rullst_orm::tenant::cond_mentions_column(cond, col))
+            }
+
+            /// Inject the `WHERE <tenant_column> = <value>` clause unless
+            /// the caller has explicitly skipped it via
+            /// `without_tenant()`, or has already pinned the tenant
+            /// column to a value via their own `where_eq(...)` /
+            /// `where_in(...)` / etc. The tenant id is inlined as a
+            /// SQL literal (it originates from the verified login
+            /// user, never from external input), so we do not need
+            /// to bind it through the parameters vec.
+            ///
+            /// The actual SQL literal rendering is delegated to
+            /// `rullst_orm::tenant::render_tenant_literal` so the
+            /// escape rules live in a single, unit-tested helper
+            /// rather than being duplicated between the query and the
+            /// save path.
+            ///
+            /// Precedence (matches the documented behaviour in
+            /// `docs/3-advanced-features.md`):
+            ///   1. `self.skip_tenant` (`without_tenant()` on the
+            ///      builder) — short-circuits everything.
+            ///   2. `rullst_orm::tenant::get_tenant_id()` — the
+            ///      ambient `with_tenant(t)` value, when present.
+            ///   3. The user already pinned the column in their own
+            ///      `wheres` — we must not stack a second predicate.
+            ///
+            /// Returns the updated `first_where` flag so the next push
+            /// step (e.g. `push_soft_deletes`) can use the right
+            /// conjunction.
+            fn push_tenant_filter(&self, sql: &mut String, first_where: bool) -> bool {
+                if self.skip_tenant || self.tenant_column.is_none() {
+                    // `skip_tenant` wins unconditionally — the
+                    // caller has explicitly asked to bypass the
+                    // tenant filter for this single query.
+                    return first_where;
+                }
+                if self.wheres_already_cover_tenant() {
+                    // The caller already added a predicate on the
+                    // tenant column. Trust their choice and let the
+                    // existing clause stand on its own; adding ours
+                    // would produce a redundant `AND <col> = ?` and a
+                    // phantom binding.
+                    return first_where;
+                }
+                // Resolve the active `with_tenant(t)` value, if any.
+                let Some(tenant) = rullst_orm::tenant::get_tenant_id() else {
+                    // No scope and `skip_tenant` is false. We fall
+                    // through without injecting a `WHERE`, which
+                    // means the query will return rows from every
+                    // tenant. Callers who want to keep this
+                    // behaviour can call `.without_tenant()`
+                    // explicitly to make the intent clear; callers
+                    // who want a hard guarantee should set up
+                    // `with_tenant` at the request boundary.
+                    return first_where;
+                };
+                if first_where {
+                    sql.push_str(" WHERE ");
+                } else {
+                    sql.push_str(" AND ");
+                }
+                let col = self
+                    .tenant_column
+                    .as_deref()
+                    .expect("tenant_column is Some by the early return above");
+                sql.push('(');
+                sql.push_str(col);
+                sql.push_str(" = ");
+                sql.push_str(&rullst_orm::tenant::render_tenant_literal(&tenant));
+                sql.push(')');
+                first_where
+            }
+
             fn push_group_by(&self, sql: &mut String) {
                 if let Some(group) = &self.group_by {
                     sql.push_str(" GROUP BY ");
@@ -844,6 +1052,12 @@ pub fn generate(
                 self.push_from(&mut sql);
                 self.push_joins(&mut sql);
                 let first_where = self.push_wheres(&mut sql);
+                // Tenant filter is injected between user wheres and
+                // soft-deletes so that its precedence is predictable
+                // (the first WHERE in the final SQL is whichever of
+                // these three — user wheres, tenant, soft-deletes —
+                // actually got added first).
+                let first_where = self.push_tenant_filter(&mut sql, first_where);
                 self.push_soft_deletes(&mut sql, first_where);
                 self.push_group_by(&mut sql);
                 self.push_havings(&mut sql);
@@ -1093,6 +1307,26 @@ fn generate_execution_methods(
                     }
                     #delete_all_logic
 
+                    // Build the WHERE clause in three layers, in this
+                    // exact order: user wheres → tenant filter →
+                    // soft-delete. The tenant filter follows the
+                    // same precedence rules as `to_sql()` (the
+                    // ambient `with_tenant` scope, with
+                    // `skip_tenant` and explicit user predicates on
+                    // the tenant column short-circuiting it), so a
+                    // `delete_all` issued inside a `with_tenant(t)`
+                    // scope targets `t` and a `delete_all` issued
+                    // after `without_tenant()` does not touch rows
+                    // from any tenant by accident.
+                    //
+                    // `first_where_emitted` tracks whether ANY
+                    // predicate (user wheres or tenant filter) has
+                    // already written the leading `WHERE` for the
+                    // current `delete_all`. The user-wheres loop uses
+                    // a separate local `first` for the
+                    // "do I prepend `AND` to this clause?" decision
+                    // inside the loop.
+                    let mut first_where_emitted = self.wheres.is_empty();
                     if !self.wheres.is_empty() {
                         query_str.push_str(" WHERE ");
                         let mut first = true;
@@ -1109,6 +1343,36 @@ fn generate_execution_methods(
                                 query_str.push_str(condition);
                                 query_str.push(')');
                             }
+                        }
+                        first_where_emitted = true;
+                    }
+
+                    // Tenant filter — same logic as `to_sql()`, but
+                    // pushed into the `WHERE` of the UPDATE/DELETE
+                    // rather than the SELECT. Honours
+                    // `skip_tenant`, the ambient `with_tenant`
+                    // scope, and the "user already pinned the
+                    // tenant column" case.
+                    if !self.skip_tenant
+                        && self.tenant_column.is_some()
+                        && !self.wheres_already_cover_tenant()
+                    {
+                        if let Some(tenant) = rullst_orm::tenant::get_tenant_id() {
+                            if first_where_emitted {
+                                query_str.push_str(" AND ");
+                            } else {
+                                query_str.push_str(" WHERE ");
+                                first_where_emitted = true;
+                            }
+                            let col = self
+                                .tenant_column
+                                .as_deref()
+                                .expect("tenant_column is Some by the early return above");
+                            query_str.push('(');
+                            query_str.push_str(col);
+                            query_str.push_str(" = ");
+                            query_str.push_str(&rullst_orm::tenant::render_tenant_literal(&tenant));
+                            query_str.push(')');
                         }
                     }
 

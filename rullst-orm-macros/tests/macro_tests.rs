@@ -159,3 +159,60 @@ fn test_model_with_combined_soft_delete_and_skip() {
     };
     let _ = input;
 }
+
+#[test]
+fn test_model_with_tenant_column_string() {
+    // The new `tenant_column` arg attaches a per-entity
+    // `WHERE <col> = ?` filter; the generated `query()` exposes
+    // `without_tenant()` so callers can bypass it on a per-query
+    // basis. The macro accepts the `tenant_column` argument on its
+    // own and alongside any other knob.
+    let input: DeriveInput = parse_quote! {
+        #[derive(Orm)]
+        #[orm(table = "products", tenant_column = "tenant_id")]
+        pub struct Product {
+            pub id: i32,
+            pub name: String,
+            pub tenant_id: String,
+        }
+    };
+    let _ = input;
+}
+
+#[test]
+fn test_model_with_tenant_column_int() {
+    // Integer `tenant_column` is the most common shape for
+    // MyBatis-Plus-style multi-tenancy.
+    let input: DeriveInput = parse_quote! {
+        #[derive(Orm)]
+        #[orm(table = "orders", tenant_column = "tenant_id")]
+        pub struct Order {
+            pub id: i32,
+            pub order_number: String,
+            pub tenant_id: i32,
+        }
+    };
+    let _ = input;
+}
+
+#[test]
+fn test_model_with_tenant_column_and_soft_delete() {
+    // Tenant column + soft delete in the same model. The macro
+    // should not double-inject WHEREs and the generated `query()`
+    // should still respect both knobs independently.
+    let input: DeriveInput = parse_quote! {
+        #[derive(Orm)]
+        #[orm(
+            table = "orders",
+            tenant_column = "tenant_id",
+            soft_delete(field = "is_deleted", value = "0", delval = "1")
+        )]
+        pub struct Order {
+            pub id: i32,
+            pub order_number: String,
+            pub tenant_id: i32,
+            pub is_deleted: i32,
+        }
+    };
+    let _ = input;
+}
