@@ -68,7 +68,14 @@ pub fn compute_diff(old_json: &str, new_json: &str) -> (Option<String>, Option<S
                     diff_new.insert(k.clone(), new_v);
                     diff_old.insert(k, v);
                 }
+            } else {
+                diff_new.insert(k.clone(), serde_json::Value::Null);
+                diff_old.insert(k, v);
             }
+        }
+        for (k, new_v) in new_obj {
+            diff_new.insert(k.clone(), new_v);
+            diff_old.insert(k, serde_json::Value::Null);
         }
     }
 
@@ -222,5 +229,26 @@ mod tests {
         )
         .await;
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_compute_diff_explicit_null_vs_omitted() {
+        let old_json = r#"{"name":"Alice","age":30}"#;
+        let new_json = r#"{"name":"Alice"}"#;
+        let (old_diff, new_diff) = super::compute_diff(old_json, new_json);
+        assert_eq!(old_diff.unwrap(), r#"{"age":30}"#);
+        assert_eq!(new_diff.unwrap(), r#"{"age":null}"#);
+
+        let old_json2 = r#"{"name":"Alice"}"#;
+        let new_json2 = r#"{"name":"Alice","age":null}"#;
+        let (old_diff2, new_diff2) = super::compute_diff(old_json2, new_json2);
+        assert_eq!(old_diff2.unwrap(), r#"{"age":null}"#);
+        assert_eq!(new_diff2.unwrap(), r#"{"age":null}"#);
+        
+        let old_json3 = r#"{"name":"Alice"}"#;
+        let new_json3 = r#"{"name":"Alice","age":30}"#;
+        let (old_diff3, new_diff3) = super::compute_diff(old_json3, new_json3);
+        assert_eq!(old_diff3.unwrap(), r#"{"age":null}"#);
+        assert_eq!(new_diff3.unwrap(), r#"{"age":30}"#);
     }
 }

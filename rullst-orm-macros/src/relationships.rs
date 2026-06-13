@@ -233,7 +233,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             query = filter(query);
                         }
                         let all_related = Box::pin(query.get()).await?;
-                        let mut map = std::collections::HashMap::new();
+                        let mut map = std::collections::HashMap::with_capacity(all_related.len());
                         for rel in all_related {
                             map.entry(rel.#fk_ident.clone()).or_insert_with(Vec::new).push(rel);
                         }
@@ -255,7 +255,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             query = filter(query);
                         }
                         let all_related = Box::pin(query.get()).await?;
-                        let mut map = std::collections::HashMap::new();
+                        let mut map = std::collections::HashMap::with_capacity(all_related.len());
                         for rel in all_related {
                             map.entry(rel.#fk_ident.clone()).or_insert(rel);
                         }
@@ -276,7 +276,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                             query = filter(query);
                         }
                         let all_related = Box::pin(query.get()).await?;
-                        let mut map = std::collections::HashMap::new();
+                        let mut map = std::collections::HashMap::with_capacity(all_related.len());
                         for rel in all_related {
                             map.entry(rel.#pk_ident.clone()).or_insert(rel);
                         }
@@ -305,7 +305,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                                 query = filter(query);
                             }
                             let all_related = Box::pin(query.get()).await?;
-                            let mut map = std::collections::HashMap::new();
+                            let mut map = std::collections::HashMap::with_capacity(all_related.len());
                             for rel in all_related {
                                 map.entry(rel.#morph_id_ident.clone()).or_insert_with(Vec::new).push(rel);
                             }
@@ -329,7 +329,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                                 query = filter(query);
                             }
                             let all_related = Box::pin(query.get()).await?;
-                            let mut map = std::collections::HashMap::new();
+                            let mut map = std::collections::HashMap::with_capacity(all_related.len());
                             for rel in all_related {
                                 map.entry(rel.#morph_id_ident.clone()).or_insert(rel);
                             }
@@ -360,14 +360,13 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                                 ph = placeholders_str,
                             );
                             if driver == "postgres" {
-                                let mut pg = String::with_capacity(pivot_sql.len());
-                                let mut pg_idx = 1usize;
-                                for c in pivot_sql.chars() {
-                                    if c == '?' {
-                                        pg.push_str(&format!("${}", pg_idx));
-                                        pg_idx += 1;
-                                    } else {
-                                        pg.push(c);
+                                use std::fmt::Write;
+                                let parts: Vec<&str> = pivot_sql.split('?').collect();
+                                let mut pg = String::with_capacity(pivot_sql.len() + parts.len() * 2);
+                                for (i, part) in parts.iter().enumerate() {
+                                    pg.push_str(part);
+                                    if i < parts.len() - 1 {
+                                        write!(pg, "${}", i + 1).unwrap();
                                     }
                                 }
                                 pivot_sql = pg;
@@ -385,6 +384,7 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                                 let mut related_ids: Vec<i32> = pivot_pairs.iter().map(|(_, rid)| *rid).collect();
                                 related_ids.sort_unstable();
                                 related_ids.dedup();
+                                let related_ids_len = related_ids.len();
 
                                 let mut query = #rel_model_ident::query().where_in("id", related_ids);
                                 if let Some(ref filter) = self.#filter_flag {
@@ -393,18 +393,35 @@ pub fn generate(parsed: &ParsedModel) -> GeneratedRelationships {
                                 let all_related: Vec<#rel_model_ident> = Box::pin(query.get()).await?;
 
                                 // related_id -> model lookup
-                                let related_map: std::collections::HashMap<i32, #rel_model_ident> =
+                                let mut related_map: std::collections::HashMap<i32, #rel_model_ident> =
                                     all_related.into_iter().map(|m| (m.id, m)).collect();
 
                                 // Build parent_id -> Vec<model> from pivot pairs
                                 let mut parent_to_related: std::collections::HashMap<i32, Vec<#rel_model_ident>> =
-                                    std::collections::HashMap::new();
+                                    std::collections::HashMap::with_capacity(results.len());
+                                let mut related_counts = std::collections::HashMap::with_capacity(related_ids_len);
+                                for (_, related_id) in &pivot_pairs {
+                                    *related_counts.entry(*related_id).or_insert(0) += 1;
+                                }
+
                                 for (parent_id, related_id) in &pivot_pairs {
-                                    if let Some(m) = related_map.get(related_id) {
-                                        parent_to_related
-                                            .entry(*parent_id)
-                                            .or_insert_with(Vec::new)
-                                            .push(m.clone());
+                                    if let Some(count) = related_counts.get_mut(related_id) {
+                                        if *count == 1 {
+                                            if let Some(m) = related_map.remove(related_id) {
+                                                parent_to_related
+                                                    .entry(*parent_id)
+                                                    .or_insert_with(Vec::new)
+                                                    .push(m);
+                                            }
+                                        } else {
+                                            if let Some(m) = related_map.get(related_id) {
+                                                parent_to_related
+                                                    .entry(*parent_id)
+                                                    .or_insert_with(Vec::new)
+                                                    .push(m.clone());
+                                            }
+                                            *count -= 1;
+                                        }
                                     }
                                 }
 

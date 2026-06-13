@@ -79,18 +79,24 @@ impl<T> RullstCollection<T> for Vec<T> {
     }
 
     fn chunk(self, size: usize) -> Vec<Vec<T>> {
+        if self.is_empty() {
+            return vec![];
+        }
         if size == 0 {
             return vec![self];
         }
 
         let mut chunks = Vec::with_capacity(self.len().div_ceil(size));
-        let mut current_chunk = Vec::with_capacity(size);
+        let mut current_chunk = Vec::with_capacity(size.min(self.len()));
+        let mut remaining = self.len();
 
         for item in self {
             current_chunk.push(item);
+            remaining -= 1;
+            
             if current_chunk.len() == size {
                 chunks.push(current_chunk);
-                current_chunk = Vec::with_capacity(size);
+                current_chunk = Vec::with_capacity(size.min(remaining));
             }
         }
 
@@ -105,8 +111,16 @@ impl<T> RullstCollection<T> for Vec<T> {
     where
         F: Fn(&T) -> String,
     {
-        let items: Vec<String> = self.iter().map(f).collect();
-        items.join(separator)
+        let mut result = String::new();
+        let mut iter = self.iter();
+        if let Some(first) = iter.next() {
+            result.push_str(&f(first));
+            for item in iter {
+                result.push_str(separator);
+                result.push_str(&f(item));
+            }
+        }
+        result
     }
 
     fn sum_by<N, F>(&self, f: F) -> N
@@ -249,5 +263,13 @@ mod tests {
         let v: Vec<i32> = vec![];
         let chunks = v.chunk(2);
         assert!(chunks.is_empty());
+    }
+
+    #[test]
+    fn test_chunk_usize_max() {
+        let v = vec![1, 2, 3];
+        let chunks = v.chunk(usize::MAX);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0], vec![1, 2, 3]);
     }
 }

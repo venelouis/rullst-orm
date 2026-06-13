@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.1] - 2026-06-13 🛠️
+
+### Performance
+- **Optimized Eager Loading Map Allocation:** Replaced `HashMap::new()` with `HashMap::with_capacity(...)` in relationship macro builders and schema rollbacks, eliminating reallocation overhead.
+- **Eliminated String Allocations:** Replaced inefficient character-by-character iterations (`.chars()`) and temporary `format!` allocations with `split()` and `std::fmt::Write` macros in the Postgres query generator and Artisan file generators, significantly reducing memory churn.
+- **Collection Implode Zero-Allocation:** Refactored `RullstCollection::implode` to use an in-place loop with a direct `String` buffer, eliminating the intermediate `Vec<String>` heap allocation.
+
+### Fixed
+- **Macro Mutability Fix:** Fixed a compilation error (`E0596`) in `relationships.rs` by correctly marking `related_map` as mutable when executing relation building logic.
+- **Collection Chunking Overflow:** Fixed a `capacity overflow` panic in `RullstCollection::chunk` when passed exceptionally large sizes (like `usize::MAX`) by dynamically constraining vector allocations to the minimum of the chunk size and remaining items.
+
+### Security
+- **Extensive Schema Identifier Validation:** Enhanced `test_validate_identifier` with comprehensive tests against SQL injection vectors (whitespace, backslashes, keywords) and `test_validate_table_name` for empty names, ensuring strict schema constraints.
+
 ## [5.0.0] - 2026-06-10 🎯
 
 ### Changed (Breaking Changes)

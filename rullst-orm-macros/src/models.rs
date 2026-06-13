@@ -428,14 +428,13 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
                     use rullst_orm::_sqlx::Execute;
                     let mut final_sql = format!("INSERT INTO {} ({}) VALUES ({}) RETURNING id", #table_name, #insert_columns_str, #insert_placeholders_str);
                     if driver == "postgres" {
-                        let mut replaced = String::with_capacity(final_sql.len());
-                        let mut idx = 1;
-                        for c in final_sql.chars() {
-                            if c == '?' {
-                                replaced.push_str(&format!("${}", idx));
-                                idx += 1;
-                            } else {
-                                replaced.push(c);
+                        use std::fmt::Write;
+                        let parts: Vec<&str> = final_sql.split('?').collect();
+                        let mut replaced = String::with_capacity(final_sql.len() + parts.len() * 2);
+                        for (i, part) in parts.iter().enumerate() {
+                            replaced.push_str(part);
+                            if i < parts.len() - 1 {
+                                write!(replaced, "${}", i + 1).unwrap();
                             }
                         }
                         final_sql = replaced;
@@ -475,14 +474,13 @@ fn generate_save_method(parsed: &ParsedModel) -> TokenStream {
                 use rullst_orm::_sqlx::Execute;
                 let mut final_sql = format!("UPDATE {} SET {} WHERE id = ?", #table_name, #update_sets_str);
                 if rullst_orm::Orm::driver() == "postgres" {
-                    let mut replaced = String::with_capacity(final_sql.len());
-                    let mut idx = 1;
-                    for c in final_sql.chars() {
-                        if c == '?' {
-                            replaced.push_str(&format!("${}", idx));
-                            idx += 1;
-                        } else {
-                            replaced.push(c);
+                    use std::fmt::Write;
+                    let parts: Vec<&str> = final_sql.split('?').collect();
+                    let mut replaced = String::with_capacity(final_sql.len() + parts.len() * 2);
+                    for (i, part) in parts.iter().enumerate() {
+                        replaced.push_str(part);
+                        if i < parts.len() - 1 {
+                            write!(replaced, "${}", i + 1).unwrap();
                         }
                     }
                     final_sql = replaced;

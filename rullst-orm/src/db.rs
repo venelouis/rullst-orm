@@ -23,3 +23,14 @@ pub type Pool = sqlx::MySqlPool;
     not(feature = "strict-mysql")
 ))]
 pub type Pool = sqlx::SqlitePool;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_db_types_exported() {
+        let _ = std::any::type_name::<Transaction>();
+        let _ = std::any::type_name::<Pool>();
+    }
+}

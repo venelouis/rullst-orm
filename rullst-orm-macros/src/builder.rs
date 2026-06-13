@@ -641,14 +641,13 @@ pub fn generate(
 
             fn format_postgres(&self, sql: &str) -> String {
                 if rullst_orm::Orm::driver() == "postgres" {
-                    let mut pg_sql = String::with_capacity(sql.len());
-                    let mut param_idx = 1;
-                    for c in sql.chars() {
-                        if c == '?' {
-                            pg_sql.push_str(&format!("${}", param_idx));
-                            param_idx += 1;
-                        } else {
-                            pg_sql.push(c);
+                    use std::fmt::Write;
+                    let parts: Vec<&str> = sql.split('?').collect();
+                    let mut pg_sql = String::with_capacity(sql.len() + parts.len() * 2);
+                    for (i, part) in parts.iter().enumerate() {
+                        pg_sql.push_str(part);
+                        if i < parts.len() - 1 {
+                            write!(pg_sql, "${}", i + 1).unwrap();
                         }
                     }
                     pg_sql
