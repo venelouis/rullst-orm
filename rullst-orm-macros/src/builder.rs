@@ -171,6 +171,20 @@ pub fn generate(
         .unwrap_or_else(|| "deleted_at IS NOT NULL".to_string());
     let execution_methods = generate_execution_methods(parsed, &builder_name, eager_loads);
     let magic_methods = generate_magic_methods(parsed);
+    // Names of fields tagged with `#[orm(skip)]` / `#[sqlx(skip)]`.
+    // They are not real columns in the underlying table, so any
+    // raw string-based `where_*` / `order_by` / `group_by` / `select`
+    // call that references one of these names must surface a
+    // `Validation` error instead of silently generating
+    // `WHERE skipped = ?`. The typed `*Column` enum and the
+    // `where_<field>` magic methods already exclude them at compile
+    // time; this constant closes the remaining escape hatch.
+    let skipped_columns: Vec<String> = parsed
+        .skipped_fields
+        .iter()
+        .map(|ident| ident.to_string())
+        .collect();
+    let skipped_columns_lit = skipped_columns.clone();
 
     quote! {
         #[derive(Clone)]
@@ -203,6 +217,37 @@ pub fn generate(
         }
 
         impl #builder_name {
+            /// Names of struct fields that the user marked with
+            /// `#[orm(skip)]` or `#[sqlx(skip)]`. Those fields are
+            /// intentionally not part of the SQL column list, so any
+            /// builder method that accepts a raw column name must
+            /// reject references to them with a `Validation` error
+            /// rather than letting them reach the database.
+            const SKIPPED_COLUMNS: &'static [&'static str] = &[#(#skipped_columns_lit),*];
+
+            /// Returns `true` when `column` is a struct field that
+            /// the user opted out of generated SQL via
+            /// `#[orm(skip)]` / `#[sqlx(skip)]`.
+            fn is_skipped_column(column: &str) -> bool {
+                Self::SKIPPED_COLUMNS.iter().any(|c| *c == column)
+            }
+
+            /// Records a `Validation` error when the caller referenced
+            /// a `#[orm(skip)]` / `#[sqlx(skip)]` field. Returns `true`
+            /// if the column is invalid, so the caller can `return
+            /// self` early and skip pushing the SQL fragment.
+            fn reject_skipped_column(&mut self, column: &str) -> bool {
+                if Self::is_skipped_column(column) {
+                    self.errors.push(rullst_orm::Error::Validation(format!(
+                        "column `{}` is declared with `#[orm(skip)]` / `#[sqlx(skip)]` and does not exist in the table; it must not be used in WHERE / ORDER BY / GROUP BY / SELECT",
+                        column
+                    )));
+                    true
+                } else {
+                    false
+                }
+            }
+
             pub fn new() -> Self {
                 Self {
                     selects: None,
@@ -350,6 +395,7 @@ pub fn generate(
             }
 
             pub fn where_eq<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_eq() — invalid column identifier: {}", e)));
                 }
@@ -359,6 +405,7 @@ pub fn generate(
             }
 
             pub fn where_not_eq<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_not_eq() — invalid column identifier: {}", e)));
                 }
@@ -368,6 +415,7 @@ pub fn generate(
             }
 
             pub fn where_gt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_gt() — invalid column identifier: {}", e)));
                 }
@@ -377,6 +425,7 @@ pub fn generate(
             }
 
             pub fn where_lt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_lt() — invalid column identifier: {}", e)));
                 }
@@ -386,6 +435,7 @@ pub fn generate(
             }
 
             pub fn where_like<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_like() — invalid column identifier: {}", e)));
                 }
@@ -395,6 +445,7 @@ pub fn generate(
             }
 
             pub fn where_not_like<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_not_like() — invalid column identifier: {}", e)));
                 }
@@ -404,6 +455,7 @@ pub fn generate(
             }
 
             pub fn where_null(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_null() — invalid column identifier: {}", e)));
                 }
@@ -412,6 +464,9 @@ pub fn generate(
             }
 
             pub fn select(mut self, columns: &[&str]) -> Self {
+                for col in columns {
+                    self.reject_skipped_column(col);
+                }
                 self.selects = Some(columns.join(", "));
                 self
             }
@@ -439,6 +494,7 @@ pub fn generate(
             }
 
             pub fn where_not_null(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_not_null() — invalid column identifier: {}", e)));
                 }
@@ -448,6 +504,7 @@ pub fn generate(
 
             /// WARNING: Ensure `column` does not contain user input to prevent SQL Injection.
             pub fn where_in<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_in() — invalid column identifier: {}", e)));
                 }
@@ -459,6 +516,7 @@ pub fn generate(
             }
 
             pub fn where_not_in<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_not_in() — invalid column identifier: {}", e)));
                 }
@@ -470,6 +528,7 @@ pub fn generate(
             }
 
             pub fn where_between<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, min: T, max: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_between() — invalid column identifier: {}", e)));
                 }
@@ -480,6 +539,7 @@ pub fn generate(
             }
 
             pub fn where_not_between<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, min: T, max: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("where_not_between() — invalid column identifier: {}", e)));
                 }
@@ -506,6 +566,7 @@ pub fn generate(
             }
 
             pub fn or_where<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where() — invalid column identifier: {}", e)));
                 }
@@ -515,6 +576,7 @@ pub fn generate(
             }
 
             pub fn or_where_not_eq<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_not_eq() — invalid column identifier: {}", e)));
                 }
@@ -524,6 +586,7 @@ pub fn generate(
             }
 
             pub fn or_where_gt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_gt() — invalid column identifier: {}", e)));
                 }
@@ -533,6 +596,7 @@ pub fn generate(
             }
 
             pub fn or_where_lt<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_lt() — invalid column identifier: {}", e)));
                 }
@@ -542,6 +606,7 @@ pub fn generate(
             }
 
             pub fn or_where_like<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, value: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_like() — invalid column identifier: {}", e)));
                 }
@@ -551,6 +616,7 @@ pub fn generate(
             }
 
             pub fn or_where_null(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_null() — invalid column identifier: {}", e)));
                 }
@@ -559,6 +625,7 @@ pub fn generate(
             }
 
             pub fn or_where_not_null(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_not_null() — invalid column identifier: {}", e)));
                 }
@@ -568,6 +635,7 @@ pub fn generate(
 
             /// WARNING: Ensure `column` does not contain user input to prevent SQL Injection.
             pub fn or_where_in<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, values: Vec<T>) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_in() — invalid column identifier: {}", e)));
                 }
@@ -579,6 +647,7 @@ pub fn generate(
             }
 
             pub fn or_where_between<T: Into<rullst_orm::RullstValue>>(mut self, column: &str, min: T, max: T) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("or_where_between() — invalid column identifier: {}", e)));
                 }
@@ -589,6 +658,7 @@ pub fn generate(
             }
 
             pub fn group_by(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("group_by() — invalid column identifier: {}", e)));
                 }
@@ -602,6 +672,7 @@ pub fn generate(
             /// Panics if `column` is not a valid SQL identifier.
             /// Column names must always be hardcoded — never pass user input here.
             pub fn order_by(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("order_by() — invalid column identifier: {}", e)));
                 }
@@ -615,6 +686,7 @@ pub fn generate(
             /// Panics if `column` is not a valid SQL identifier.
             /// Column names must always be hardcoded — never pass user input here.
             pub fn order_by_desc(mut self, column: &str) -> Self {
+                self.reject_skipped_column(column);
                 if let Err(e) = rullst_orm::schema::validate_identifier(column) {
                     self.errors.push(rullst_orm::Error::Validation(format!("order_by_desc() — invalid column identifier: {}", e)));
                 }

@@ -163,6 +163,38 @@ pub struct User {
 
 > **Note:** when a model declares any `#[sqlx(skip)]` (or `#[orm(skip)]`) field, the generated `from_json_value` falls back to `..Default::default()` for the trailing fields, so the model must also `derive(Default)`.
 
+### Compile-time vs. runtime exclusion
+
+A `#[sqlx(skip)]` field is excluded at *two* levels:
+
+1. **Compile time.** The `*Column` enum does not have a variant for
+   the skipped field, and the `where_<field>`, `or_where_<field>`,
+   `where_not_<field>`, `order_by_<field>`, `order_by_<field>_desc`
+   magic methods are never generated. There is no way to spell
+   `UserColumn::Secret` or `User::query().where_secret(...)` — Rust
+   refuses to compile.
+2. **Runtime.** The raw string-based builders
+   (`where_eq` / `where_not_eq` / `where_gt` / `where_lt` /
+   `where_like` / `where_not_like` / `where_null` / `where_not_null` /
+   `where_in` / `where_not_in` / `where_between` / `where_not_between`
+   / `or_where_*` / `group_by` / `order_by` / `order_by_desc` /
+   `select`) would happily emit `WHERE secret = ?` if you handed
+   them the column name as a string. The generated builder now
+   captures the list of skipped column names in a `const
+   SKIPPED_COLUMNS: &'static [&'static str]` and rejects any
+   reference to them with a `Validation` error before the SQL is
+   built:
+
+   ```text
+   Validation error: column `secret` is declared with
+   `#[orm(skip)]` / `#[sqlx(skip)]` and does not exist in the table;
+   it must not be used in WHERE / ORDER BY / GROUP BY / SELECT
+   ```
+
+   This means the typed API, the magic methods, the column enum, and
+   the raw string API all agree: a `#[sqlx(skip)]` field is invisible
+   to the database.
+
 A runnable example lives in `rullst-orm/examples/custom_soft_delete.rs`:
 
 ```bash

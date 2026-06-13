@@ -412,6 +412,93 @@ async fn scenario_skipped_field() {
     u.save().await.expect("update should ignore `secret` field");
     assert_eq!(u.secret, "still untouched");
 
+    // The query builder must also refuse to use a skipped field as a
+    // column. The typed `*Column` enum and the `where_<field>` magic
+    // methods do not even *exist* for `secret` (compile-time
+    // exclusion), but the raw string-based builders could in theory
+    // be tricked into emitting `WHERE secret = ?`. We patch that
+    // hole by collecting a `Validation` error in every raw entry
+    // point that takes a column name.
+    use rullst_orm::Error as OrmError;
+
+    let err = SkippedFieldUser::query()
+        .where_eq("secret", "x")
+        .first()
+        .await
+        .expect_err("where_eq on a skipped field must fail");
+    let msg = format!("{}", err);
+    assert!(
+        matches!(err, OrmError::Validation(_)) && msg.contains("secret"),
+        "expected Validation error mentioning `secret`, got: {}",
+        msg
+    );
+
+    let err = SkippedFieldUser::query()
+        .or_where("secret", "x")
+        .first()
+        .await
+        .expect_err("or_where on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .where_null("secret")
+        .first()
+        .await
+        .expect_err("where_null on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .where_in("secret", vec!["a", "b"])
+        .first()
+        .await
+        .expect_err("where_in on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .where_between("secret", 1, 9)
+        .first()
+        .await
+        .expect_err("where_between on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .order_by("secret")
+        .first()
+        .await
+        .expect_err("order_by on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .order_by_desc("secret")
+        .first()
+        .await
+        .expect_err("order_by_desc on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .group_by("secret")
+        .first()
+        .await
+        .expect_err("group_by on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    let err = SkippedFieldUser::query()
+        .select(&["id", "name", "secret"])
+        .first()
+        .await
+        .expect_err("select on a skipped field must fail");
+    assert!(matches!(err, OrmError::Validation(_)));
+
+    // A *normal* column reference must still succeed and not
+    // accumulate any errors.
+    let ok = SkippedFieldUser::query()
+        .where_eq("name", "SkipBobUpdated")
+        .first()
+        .await
+        .expect("where_eq on a real column must succeed")
+        .expect("the row inserted above must still be present");
+    assert_eq!(ok.name, "SkipBobUpdated");
+
     Schema::drop_if_exists("it_skipped")
         .await
         .expect("drop it_skipped");
