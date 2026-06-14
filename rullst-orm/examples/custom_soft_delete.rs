@@ -15,7 +15,10 @@ use rullst_orm::{FromRow, Orm};
 // Replace `1` with `now()` / `UNIX_TIMESTAMP()` for timestamp-based
 // multi-delete scenarios.
 #[derive(Debug, Clone, Default, FromRow, rullst_orm::Orm)]
-#[orm(table = "soft_delete_demo", soft_delete(field = "is_deleted", value = "0", delval = "1"))]
+#[orm(
+    table = "soft_delete_demo",
+    soft_delete(field = "is_deleted", value = "0", delval = "1")
+)]
 pub struct SoftDeleteDemo {
     pub id: i32,
     pub name: String,
@@ -91,7 +94,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     row.restore().await?;
     let visible_again = SoftDeleteDemo::query().get().await?;
     println!("visible rows after restore: {}", visible_again.len());
-    assert_eq!(visible_again.len(), 1, "restore should make the row visible again");
+    assert_eq!(
+        visible_again.len(),
+        1,
+        "restore should make the row visible again"
+    );
 
     // ── FORCE DELETE ─────────────────────────────────────────────────────
     row.force_delete().await?;

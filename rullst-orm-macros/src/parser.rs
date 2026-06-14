@@ -256,9 +256,7 @@ pub fn parse(input: &DeriveInput) -> Result<ParsedModel, syn::Error> {
     // legacy behaviour of detecting a `deleted_at` field by name so
     // existing models keep working without changes.
     let mut has_soft_deletes = soft_delete.is_some();
-    let soft_delete_column_lower = soft_delete
-        .as_ref()
-        .map(|c| c.column.to_lowercase());
+    let soft_delete_column_lower = soft_delete.as_ref().map(|c| c.column.to_lowercase());
     // Track the column name that should be considered the soft delete
     // marker. Used at the end of field iteration to synthesise a
     // default `SoftDeleteConfig` for legacy `deleted_at` models so the

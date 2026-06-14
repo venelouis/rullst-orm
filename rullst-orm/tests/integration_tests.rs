@@ -231,7 +231,10 @@ async fn scenario_soft_delete() {
 // configuration produces the correct SQL fragments for SELECT filters,
 // DELETE statements, and restore on every supported driver.
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
-#[orm(table = "it_int_soft", soft_delete(field = "is_deleted", value = "0", delval = "1"))]
+#[orm(
+    table = "it_int_soft",
+    soft_delete(field = "is_deleted", value = "0", delval = "1")
+)]
 struct IntSoftUser {
     pub id: i32,
     pub name: String,
@@ -239,7 +242,10 @@ struct IntSoftUser {
 }
 
 #[derive(Debug, Clone, FromRow, rullst_orm::Orm)]
-#[orm(table = "it_ts_soft", soft_delete(field = "deleted_at", value = "null", delval = "CURRENT_TIMESTAMP"))]
+#[orm(
+    table = "it_ts_soft",
+    soft_delete(field = "deleted_at", value = "null", delval = "CURRENT_TIMESTAMP")
+)]
 struct TimestampSoftUser {
     pub id: i32,
     pub name: String,
@@ -251,7 +257,9 @@ async fn scenario_configurable_soft_delete() {
     Schema::create("it_int_soft", |t: &mut Blueprint| {
         t.id();
         t.string("name").not_null();
-        t.integer("is_deleted").not_null().default(ColumnDefault::Integer(0));
+        t.integer("is_deleted")
+            .not_null()
+            .default(ColumnDefault::Integer(0));
     })
     .await
     .expect("create it_int_soft");
@@ -345,12 +353,11 @@ async fn scenario_configurable_soft_delete() {
     };
     u.save().await.expect("save TsAlice");
     u.delete().await.expect("soft delete TsAlice");
-    let row: (Option<String>,) =
-        sqlx::query_as("SELECT deleted_at FROM it_ts_soft WHERE id = ?")
-            .bind(u.id)
-            .fetch_one(Orm::pool())
-            .await
-            .expect("select after delete");
+    let row: (Option<String>,) = sqlx::query_as("SELECT deleted_at FROM it_ts_soft WHERE id = ?")
+        .bind(u.id)
+        .fetch_one(Orm::pool())
+        .await
+        .expect("select after delete");
     assert!(row.0.is_some(), "deleted_at should be set after delete");
 
     Schema::drop_if_exists("it_ts_soft")
